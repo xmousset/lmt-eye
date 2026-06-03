@@ -12,8 +12,9 @@ from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-# EVENT NAME (should correspond to the file name)
+# EVENT INFO
 # ----------------
+
 EVENT_NAME = "Example event"
 
 EVENT_DESCRIPTION = """
