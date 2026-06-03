@@ -128,6 +128,8 @@ class LMTEYEApp(QMainWindow):
     ):
         help_dialog = HelpDialog(self)
         match option:
+            case "full":
+                help_dialog.init_ui(help_dialog.full_msg())
             case "version":
                 help_dialog.init_ui(help_dialog.version_msg())
             case "resources":
@@ -176,7 +178,7 @@ class HelpDialog(QDialog):
         msg = f"""
             You can find the source code of LMT-EYE on the following link:<br>
             Github: <a href='https://github.com/xmousset/lmt-eye'>
-            LMT-EYE repository</a><br>
+            lmt-eye repository</a><br>
             <br>
             LMT-EYE is based on a report created by Fabrice De Chaumont:<br>
             Github: <a href='https://github.com/fdechaumont/lmt-analysis'>
@@ -197,14 +199,18 @@ class HelpDialog(QDialog):
         msg = f"""
             <b>LMT Documentation</b><br>
             <br>
-            Here are some documentation resources to help you understand LMT
-            and LMT-EYE better:<br>
+            Here is the wiki, where you can find some documentation resources:<br>
+            <a href='https://github.com/xmousset/lmt-eye/wiki'>
+            LMT-EYE Wiki</a><br>
             <br>
-            - <a href='https://drive.google.com/file/d/1UHNGL4BUCNpipz1y25DdsF0rw2LvPh8g/view?usp=sharing'>
-            MEMO LMT Assembly</a><br>
+            - <a href='https://github.com/xmousset/lmt-eye/wiki/Live-Mouse-Tracker---Assembly'>
+            LMT Installation MEMO</a><br>
             <br>
-            - <a href='https://drive.google.com/file/d/12u-4uoQW96lL5BojxxcKDYHrrWUD99CK/view?usp=sharing'>
-            MEMO LMT Database</a><br>
+            - <a href='https://github.com/xmousset/lmt-eye/wiki/LMT-SQLite-DataBase-Documentation'>
+            LMT Database Explanation</a><br>
+            <br>
+            - <a href='https://github.com/xmousset/lmt-eye/wiki/LMT-Events-Documentation'>
+            LMT Events Description</a><br>
             <br>
             - <a href='https://docs.google.com/document/d/1Wn0yfELiKF1Vydvoe-_4qiQ44q61_3xg85r0I6be33Y/edit?usp=sharing'>
             RFID Tags informations</a><br>
