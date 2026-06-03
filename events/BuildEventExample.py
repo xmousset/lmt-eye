@@ -6,14 +6,22 @@ import sqlite3
 import numpy as np
 from typing import Any
 
-from lmtanalysis.EventTimeLineCache import EventTimeLineCached
-from lmtanalysis.Animal import AnimalPool, AnimalType, EventTimeLine
-from lmtanalysis.Event import deleteEventTimeLineInBase
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.EventTimeLineCache import EventTimeLineCached
+from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
+from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
 # EVENT NAME (should correspond to the file name)
 # ----------------
-EVENT_NAME = "Your event"
+EVENT_NAME = "Example event"
+
+EVENT_DESCRIPTION = """
+    This is an example of a custom event. It is not an official event, but it can be built and analysed like any other event.
+    You can use this file as a template to create your own custom events.
+    To do so, copy and paste this file, rename it (e.g. BuildEventMyEvent.py), and modify the code in the reBuildEvent function.
+    Make sure to change the EVENT_NAME variable and the docstring of the reBuildEvent function to describe your event and its parameters.
+"""
 
 
 # DO NOT MODIFY
@@ -71,7 +79,7 @@ def reBuildEvent(
         pool.loadAnimals(connection)
         pool.loadDetection(start=tmin, end=tmax)
 
-    for animal_key in pool.animalDictionary.keys():
+    for animal in pool.animalDictionary.values():
 
         # create a new event timeline for each animal
         # it will be filled with the result of your event detection
@@ -79,7 +87,7 @@ def reBuildEvent(
         your_event_TimeLine = EventTimeLine(
             conn=None,
             eventName=EVENT_NAME,
-            idA=animal_key,
+            idA=animal.baseId,
             idB=None,
             idC=None,
             idD=None,
@@ -98,13 +106,12 @@ def reBuildEvent(
         # this means your event occur at frame "f"
         # NEVER add a "False" value to the dictionary
 
-        # get the animal object from the pool with the animal key (id)
-        animal = pool.animalDictionary[animal_key]
+        sorted_detections = sorted(animal.detectionDictionary.items())
 
         # ================ YOUR CODE HERE ================
 
         # example of how to get all frames where the animal was detected
-        animal_frames = np.array(sorted(animal.detectionDictionary.keys()))
+        animal_frames = np.array([frame for frame, _ in sorted_detections])
 
         # examples of how to skip animals without detections
         if animal_frames.size == 0:
@@ -113,7 +120,7 @@ def reBuildEvent(
         # example of how to get massX position of the animal detections
         # in a numpy array and with the same order as animal_frames
         massX = np.array(
-            [animal.detectionDictionary.get(f).massX for f in animal_frames]
+            [detection.massX for _, detection in sorted_detections]
         )
 
         # example of how to compute speed along X axis
@@ -125,7 +132,7 @@ def reBuildEvent(
         stop_frames = EventTimeLine(
             conn=connection,
             eventName="Stop",
-            idA=animal_key,
+            idA=animal.baseId,
         ).getDictionary()
 
         # ================ END OF YOUR CODE ================

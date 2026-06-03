@@ -26,7 +26,10 @@ from scripts.settings import AnalysisSettings
 
 from widgets.pyqt6_tools import get_btn_style
 from widgets.area_selection import AreaSelectionWindow
-from widgets.event_selection import EventSelectionWindow
+from widgets.event_selection import (
+    EventSelectionWindow,
+    get_custom_events_dict,
+)
 
 from lmtanalysis.Animal import AnimalType
 
@@ -147,23 +150,44 @@ class AnalysisSettingsWindow(QDialog):
 
         # ================ EVENTS ================
 
-        # events (known)
+        # events (official)
         btn_style = get_btn_style(txt_color="white", bg_color="blue")
-        self.select_events_btn = QPushButton("Select Events")
-        self.select_events_btn.setToolTip(
+        self.select_official_events_btn = QPushButton("Official Events")
+        self.select_official_events_btn.setToolTip(
             "Select events to rebuild and analyse in the analysis process."
         )
-        self.select_events_btn.setStyleSheet(btn_style)
-        self.select_events_btn.setFixedWidth(150)
-        self.select_events_btn.clicked.connect(self.on_select_events)
+        self.select_official_events_btn.setStyleSheet(btn_style)
+        self.select_official_events_btn.setFixedWidth(150)
+        self.select_official_events_btn.clicked.connect(
+            self.on_select_official_events
+        )
 
         # events (custom)
-        self.custom_event_edit = QLineEdit()
-        self.custom_event_edit.setPlaceholderText("no custom events")
-        self.custom_event_edit.setToolTip(
-            "Enter custom event names to be included in the analysis. "
-            "Separate multiple events with commas.\n"
-            "(e.g.: Event1, Event2, Event3)"
+        btn_style = get_btn_style(txt_color="white", bg_color="blue")
+        self.select_custom_events_btn = QPushButton("Custom Events")
+        self.select_custom_events_btn.setToolTip(
+            "Select events to rebuild and analyse in the analysis process "
+            "among custom events\n (not official, but already existing in the "
+            "events/custom folder in the form of 'BuildEvent___.py')."
+        )
+        self.select_custom_events_btn.setStyleSheet(btn_style)
+        self.select_custom_events_btn.setFixedWidth(150)
+        self.select_custom_events_btn.clicked.connect(
+            self.on_select_custom_events
+        )
+
+        # events (written)
+        self.written_event_edit = QLineEdit()
+        self.written_event_edit.setPlaceholderText("no annotated events")
+        self.written_event_edit.setToolTip(
+            "Enter annotated event names to be included in the analysis.\n"
+            "Separate multiple events with commas. (e.g.: Event1, Event2, "
+            "Event3)\n"
+            "These events came from LMT software manual annotations and, "
+            "therefore, cannot be rebuilt.\n"
+            "If they exist in the database, they will be included in the "
+            "analysis.\n"
+            "If they do not exist in the database, they will be ignored."
         )
 
         # rebuild_events
@@ -177,17 +201,19 @@ class AnalysisSettingsWindow(QDialog):
 
         # rows layout
         events_row = QHBoxLayout()
-        events_row.addStretch(4)
-        events_row.addWidget(self.select_events_btn)
-        events_row.addStretch(3)
+        events_row.addStretch(1)
+        events_row.addWidget(self.select_official_events_btn)
+        events_row.addStretch(1)
+        events_row.addWidget(self.select_custom_events_btn)
+        events_row.addStretch(1)
         events_row.addWidget(QLabel("Rebuild:"))
         events_row.addWidget(self.rebuild_box)
 
-        custom_row = QHBoxLayout()
-        custom_row.addWidget(self.custom_event_edit)
+        written_row = QHBoxLayout()
+        written_row.addWidget(self.written_event_edit)
 
         form.addRow("<b>Events</b>", events_row)
-        form.addRow("<b>Custom events</b>", custom_row)
+        form.addRow("<b>Annotated events</b>", written_row)
         form.addRow(self.Qhline())
 
         # ================ ACTIVITY FILTERS ================
@@ -633,9 +659,10 @@ class AnalysisSettingsWindow(QDialog):
         self.end_edit.setText(settings["processing_limits"][1])
         self.output_folder_edit.setText(settings["output_folder"])
 
-        selected_known_events = self.get_selected_known_events()
-        custom_events = self.settings.events - selected_known_events
-        self.custom_event_edit.setText(", ".join(custom_events))
+        official = self.get_official_events_from_settings()
+        custom = self.get_custom_events_from_settings()
+        written = self.settings.events - official - custom
+        self.written_event_edit.setText(", ".join(written))
 
         self.animal_type_box.setCurrentText(self.settings.animal_type.name)
         self.sensors_cb.setChecked(self.settings.display_sensors)
@@ -686,7 +713,7 @@ class AnalysisSettingsWindow(QDialog):
         self.settings.rebuild_events = self.rebuild_box.isChecked()
         self.settings.bin_rounding = self.bin_rounding_cb.isChecked()
         self.settings.utc_offset = self.utc_offset_spin.value()
-        self._update_custom_events()
+        self._update_events()
 
         start_text = self.start_edit.text().strip()
         if not start_text:
@@ -891,36 +918,54 @@ class AnalysisSettingsWindow(QDialog):
         )
         self.night_duration_edit.blockSignals(False)
 
-    def _update_custom_events(self):
-        """Update settings.events from the UI by keeping only known events and
-        current custom events."""
-        selected_known_events = self.get_selected_known_events()
-        custom_events = self.get_custom_events_from_ui()
-        self.settings.events = selected_known_events | custom_events
+    def _update_events(self):
+        """Update settings.events from the UI by keeping only known events
+        (official and custom) and current written events."""
+        official_events = self.get_official_events_from_settings()
+        custom_events = self.get_custom_events_from_settings()
+        written_events = self.get_written_events_from_ui()
+        self.settings.events = official_events | custom_events | written_events
 
     # ================ UTILS FUNCTIONS ================
 
-    def get_custom_events_from_ui(self):
-        """Get the custom events from UI as a set."""
-        custom_list = self.custom_event_edit.text().split(",")
-        custom_set = {event.strip() for event in custom_list if event.strip()}
-        return custom_set
+    def get_written_events_from_ui(self):
+        """Get the written events from UI as a set."""
+        w_e_list = self.written_event_edit.text().split(",")
+        w_e_set = {event.strip() for event in w_e_list if event.strip()}
+        return w_e_set
 
-    def get_selected_known_events(self):
+    def get_official_events_from_settings(self):
         """Get all events present in both settings.events and ALL_EVENTS.
         It corresponds to the events that are selected in the UI (through
-        EventSelectionDialog) and are known by the app (i.e. for which the
+        EventSelectionWindow) and are known by the app (i.e. for which the
         app has a specific analysis implemented).
         """
-        known_events = set(ALL_EVENTS.keys())
-        selected_events = self.settings.events & known_events
+        official_events = set(ALL_EVENTS.keys())
+        selected_events = self.settings.events & official_events
         return selected_events
 
-    def on_select_events(self):
-        dlg = EventSelectionWindow(self, self.settings.events)
+    def get_custom_events_from_settings(self):
+        """Get all events present in both settings.events and in events/custom
+        folder.
+        It corresponds to the events that are selected in the UI (through
+        EventSelectionWindow) and are known by the app (i.e. for which the
+        app has a specific analysis implemented).
+        """
+        custom_events = set(get_custom_events_dict().keys())
+        selected_events = self.settings.events & custom_events
+        return selected_events
+
+    def on_select_official_events(self):
+        dlg = EventSelectionWindow(self, "official", self.settings.events)
         if dlg.exec():
             self.settings.events = dlg.selected_events
-            self._update_custom_events()
+            self._update_events()
+
+    def on_select_custom_events(self):
+        dlg = EventSelectionWindow(self, "custom", self.settings.events)
+        if dlg.exec():
+            self.settings.events = dlg.selected_events
+            self._update_events()
 
     def on_select_area(self):
         dlg = AreaSelectionWindow(self, self.settings.analysis_area)
