@@ -8,15 +8,17 @@ from pathlib import Path
 
 import pandas as pd
 
-from reports import activity, event, overview, sensors, trajectory
 from scripts.settings import AnalysisSettings
+from scripts.events_rebuilder import EventsRebuilder
 from scripts.reports_manager import HTMLReportManager
 from scripts.df_constructor import DataframeConstructor
-from scripts.events_rebuilder import EventsRebuilder
 from scripts.tkinter_tools import (
     select_sqlite_file,
     select_folder,
 )
+
+from events.events_manager import get_modules_from_events_name
+from reports import activity, event, overview, sensors, trajectory
 
 
 class DatabaseAnalyzer:
@@ -149,7 +151,8 @@ class DatabaseAnalyzer:
                 self.settings.events - rebuilder.get_events_in_database()
             )
 
-        rebuilder.rebuild(events_to_rebuild, progress_callback)
+        modules = get_modules_from_events_name(events_to_rebuild)
+        rebuilder.rebuild(modules, progress_callback)
         connection.close()
 
     def run_analysis(
@@ -173,17 +176,12 @@ class DatabaseAnalyzer:
         connection = sqlite3.connect(self.database_path)
         repo_manager = HTMLReportManager()
 
-        print(
-            f"Limits: {self.settings.processing_limits[0]}, "
-            f"{self.settings.processing_limits[1]}"
-        )
-
         df_constructor = DataframeConstructor(
             connection=connection,
             bin_rounding=self.settings.bin_rounding,
             bin_window=self.settings.time_window,
             processing_window=self.settings.processing_window,
-            processing_limits=self.settings.processing_limits,
+            processing_limits=self.settings.convert_processing_limits(),
             analysis_area=self.settings.analysis_area,
             fps=self.settings.fps,
             utc_offset=self.settings.utc_offset,

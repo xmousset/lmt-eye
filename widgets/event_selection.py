@@ -1,5 +1,3 @@
-import importlib.util
-from pathlib import Path
 from types import ModuleType
 from typing import Any, Literal
 
@@ -15,7 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from scripts.events_and_modules import ALL_EVENTS
+from events.events_manager import OFFICIAL_EVENTS, CUSTOM_EVENTS
 from widgets.pyqt6_tools import get_btn_style
 
 
@@ -34,10 +32,9 @@ class EventSelectionWindow(QDialog):
         self.selected_events: set[str] = preselected_events
         match events_package:
             case "official":
-                self._init_ui(ALL_EVENTS)
+                self._init_ui(OFFICIAL_EVENTS)
             case "custom":
-                custom_events = get_custom_events_dict()
-                self._init_ui(custom_events)
+                self._init_ui(CUSTOM_EVENTS)
             case _:
                 raise ValueError(
                     f"Invalid events_package: {events_package}. "
@@ -108,52 +105,6 @@ class EventSelectionWindow(QDialog):
     def get_selected_events(self) -> set[str]:
         """Return a set of event names for checked checkboxes."""
         return {cb.text() for cb in self.analysis_options if cb.isChecked()}
-
-
-def get_custom_events_dict() -> dict[str, ModuleType]:
-    """
-    Load all custom event modules from events/custom directory.
-
-    Returns
-    -------
-    dict[str, ModuleType]
-        Dictionary with EVENT_NAME as key and module as value.
-        Example: {"Speed": <module>, "Rearing": <module>, ...}
-    """
-    custom_events_dir = Path(__file__).parent.parent / "events" / "custom"
-    events_dict = {}
-
-    if not custom_events_dir.exists():
-        print(f"Warning: {custom_events_dir} does not exist")
-        return events_dict
-
-    # Iterate through all .py files in events/custom
-    for file_path in custom_events_dir.glob("BuildEvent*.py"):
-
-        try:
-            # Load module dynamically
-            spec = importlib.util.spec_from_file_location(
-                file_path.stem,
-                file_path,
-            )
-            assert spec is not None and spec.loader is not None
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            # Get EVENT_NAME from module and add to dict
-            if hasattr(module, "EVENT_NAME"):
-                event_name = module.EVENT_NAME
-                events_dict[event_name] = module
-                print(f"✓ Loaded event: {event_name}")
-            else:
-                print(
-                    f"⚠ Warning: {file_path.name} has no EVENT_NAME attribute"
-                )
-
-        except Exception as e:
-            print(f"✗ Error loading {file_path.name}: {e}")
-
-    return events_dict
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ import pandas as pd
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QAbstractSpinBox,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -15,21 +14,18 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QSpinBox,
-    QVBoxLayout,
     QWidget,
 )
 
-from scripts.events_and_modules import ALL_EVENTS
+from events.events_manager import OFFICIAL_EVENTS, CUSTOM_EVENTS
 from scripts.settings import AnalysisSettings
 
 from widgets.pyqt6_tools import get_btn_style
 from widgets.area_selection import AreaSelectionWindow
-from widgets.event_selection import (
-    EventSelectionWindow,
-    get_custom_events_dict,
-)
+from widgets.event_selection import EventSelectionWindow
 
 from lmtanalysis.Animal import AnimalType
 
@@ -519,7 +515,7 @@ class AnalysisSettingsWindow(QDialog):
         form.addRow("<b>Time Zone</b>", utc_row)
         form.addRow(self.Qhline())
 
-        # ================ ANALYSIS LIMITS (start, end) ================
+        # ================ PROCESSING LIMITS (start, end) ================
 
         # processing_limits (start)
         if self.settings.processing_limits[0] is None:
@@ -555,6 +551,10 @@ class AnalysisSettingsWindow(QDialog):
         self.end_edit.setPlaceholderText("last frame")
         self.end_edit.setMinimumHeight(30)
 
+        # connect signals to verify processing limits
+        self.start_edit.textChanged.connect(self._on_processing_limits_changed)
+        self.end_edit.textChanged.connect(self._on_processing_limits_changed)
+
         # row layout
         limits_row = QHBoxLayout()
         limits_row.addWidget(QLabel("Start:"))
@@ -576,7 +576,7 @@ class AnalysisSettingsWindow(QDialog):
         )
 
         # row layout
-        form.addRow("<b>Analysis limits</b>", limits_row)
+        form.addRow("<b>Processing limits</b>", limits_row)
         form.addRow(limits_infos_row)
         form.addRow(self.Qhline())
 
@@ -659,9 +659,7 @@ class AnalysisSettingsWindow(QDialog):
         self.end_edit.setText(settings["processing_limits"][1])
         self.output_folder_edit.setText(settings["output_folder"])
 
-        official = self.get_official_events_from_settings()
-        custom = self.get_custom_events_from_settings()
-        written = self.settings.events - official - custom
+        _, _, written = self.get_selected_events_from_settings()
         self.written_event_edit.setText(", ".join(written))
 
         self.animal_type_box.setCurrentText(self.settings.animal_type.name)
@@ -715,33 +713,13 @@ class AnalysisSettingsWindow(QDialog):
         self.settings.utc_offset = self.utc_offset_spin.value()
         self._update_events()
 
-        start_text = self.start_edit.text().strip()
-        if not start_text:
-            start = None
-        elif start_text.isdigit():
-            start = int(start_text)
-        else:
-            try:
-                start = pd.Timestamp(start_text)
-            except:
-                print("Invalid timestamp format. Setting start to None.")
-                start = None
-
-        end_text = self.end_edit.text()
-        if not end_text:
-            end = None
-        elif end_text.isdigit():
-            end = int(end_text)
-        else:
-            try:
-                end = pd.Timestamp(end_text)
-            except:
-                print("Invalid timestamp format. Setting end to None.")
-                end = None
-
-        limits = (start, end)
-
-        self.settings.processing_limits = limits
+        start_limit = self.start_edit.text().strip()
+        if not start_limit:
+            start_limit = None
+        end_limit = self.end_edit.text().strip()
+        if not end_limit:
+            end_limit = None
+        self.settings.processing_limits = (start_limit, end_limit)
 
     # ================ UPDATE FUNCTIONS ================
 
@@ -835,6 +813,48 @@ class AnalysisSettingsWindow(QDialog):
         self._on_time_frames_changed()
         self._on_process_frames_changed()
 
+    def _check_limits_is_valid(self, text: str) -> bool:
+        """Check if a processing limit input is valid (either empty, an integer
+        or a timestamp)."""
+        text = text.strip()
+        if not text:
+            return True
+        elif text.isdigit():
+            return True
+        else:
+            try:
+                pd.Timestamp(text)
+                return True
+            except:
+                return False
+
+    def _check_processing_limits_valid(self) -> bool:
+        """Check if processing limits inputs are valid."""
+        start_is_valid = self._check_limits_is_valid(self.start_edit.text())
+        end_is_valid = self._check_limits_is_valid(self.end_edit.text())
+        result = start_is_valid and end_is_valid
+        if not result:
+            QMessageBox.warning(
+                self,
+                "Invalid processing limits",
+                (
+                    "Invalid processing limits. Please correct the processing "
+                    "limits inputs."
+                ),
+            )
+        return result
+
+    def _on_processing_limits_changed(self):
+        """Validate start processing limit input and set red border if invalid."""
+        start_is_valid = self._check_limits_is_valid(self.start_edit.text())
+        end_is_valid = self._check_limits_is_valid(self.end_edit.text())
+        self.start_edit.setStyleSheet(
+            "border: 1px solid red;" if not start_is_valid else None
+        )
+        self.end_edit.setStyleSheet(
+            "border: 1px solid red;" if not end_is_valid else None
+        )
+
     @staticmethod
     def _parse_time_text(text: str) -> tuple[int, int] | None:
         """Parse a time string like '18:00' or '18h00' into (int, int) for
@@ -857,6 +877,23 @@ class AnalysisSettingsWindow(QDialog):
         duration = self._parse_time_text(self.night_duration_edit.text())
         end = self._parse_time_text(self.night_end_edit.text())
 
+        return begin, duration, end
+
+    def _check_night_times_valid(self) -> bool:
+        """Check if night time inputs are valid."""
+        begin, duration, end = self._get_night_times()
+        result = begin is not None and duration is not None and end is not None
+        if not result:
+            QMessageBox.warning(
+                self,
+                "Invalid Night hours",
+                "Invalid night hours. Please correct the night hours inputs.",
+            )
+        return result
+
+    def _update_night_times(self):
+        begin, duration, end = self._get_night_times()
+
         if begin is None:
             self.night_begin_edit.setStyleSheet("border: 1px solid red;")
         else:
@@ -875,7 +912,7 @@ class AnalysisSettingsWindow(QDialog):
         return begin, duration, end
 
     def _on_night_begin_changed(self):
-        begin, _, end = self._get_night_times()
+        begin, _, end = self._update_night_times()
         if begin is None or end is None:
             return
 
@@ -890,7 +927,7 @@ class AnalysisSettingsWindow(QDialog):
         self.night_duration_edit.blockSignals(False)
 
     def _on_night_duration_changed(self):
-        begin, duration, _ = self._get_night_times()
+        begin, duration, _ = self._update_night_times()
         if begin is None or duration is None:
             return
 
@@ -904,7 +941,7 @@ class AnalysisSettingsWindow(QDialog):
         self.night_end_edit.blockSignals(False)
 
     def _on_night_end_changed(self):
-        begin, _, end = self._get_night_times()
+        begin, _, end = self._update_night_times()
         if begin is None or end is None:
             return
 
@@ -921,10 +958,8 @@ class AnalysisSettingsWindow(QDialog):
     def _update_events(self):
         """Update settings.events from the UI by keeping only known events
         (official and custom) and current written events."""
-        official_events = self.get_official_events_from_settings()
-        custom_events = self.get_custom_events_from_settings()
-        written_events = self.get_written_events_from_ui()
-        self.settings.events = official_events | custom_events | written_events
+        official, custom, written = self.get_selected_events_from_settings()
+        self.settings.events = official | custom | written
 
     # ================ UTILS FUNCTIONS ================
 
@@ -934,26 +969,23 @@ class AnalysisSettingsWindow(QDialog):
         w_e_set = {event.strip() for event in w_e_list if event.strip()}
         return w_e_set
 
-    def get_official_events_from_settings(self):
+    def get_selected_events_from_settings(self):
         """Get all events present in both settings.events and ALL_EVENTS.
         It corresponds to the events that are selected in the UI (through
         EventSelectionWindow) and are known by the app (i.e. for which the
         app has a specific analysis implemented).
         """
-        official_events = set(ALL_EVENTS.keys())
-        selected_events = self.settings.events & official_events
-        return selected_events
+        official_events = set(OFFICIAL_EVENTS.keys())
+        official_selection = self.settings.events & official_events
 
-    def get_custom_events_from_settings(self):
-        """Get all events present in both settings.events and in events/custom
-        folder.
-        It corresponds to the events that are selected in the UI (through
-        EventSelectionWindow) and are known by the app (i.e. for which the
-        app has a specific analysis implemented).
-        """
-        custom_events = set(get_custom_events_dict().keys())
-        selected_events = self.settings.events & custom_events
-        return selected_events
+        custom_events = set(CUSTOM_EVENTS.keys())
+        custom_selection = self.settings.events & custom_events
+
+        written_selection = (
+            self.settings.events - official_selection - custom_selection
+        )
+
+        return official_selection, custom_selection, written_selection
 
     def on_select_official_events(self):
         dlg = EventSelectionWindow(self, "official", self.settings.events)
@@ -1037,11 +1069,14 @@ class AnalysisSettingsWindow(QDialog):
     def on_accept(self):
         """Update settings and accept dialog."""
         self._update_settings_from_ui()
+        if not self._check_processing_limits_valid():
+            return
+        if not self._check_night_times_valid():
+            return
         self.accept()
 
     def on_reject(self):
-        """Update settings and reject dialog."""
-        self._update_settings_from_ui()
+        """Reject dialog."""
         self.reject()
 
     def Qhline(self):

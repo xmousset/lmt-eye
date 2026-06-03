@@ -14,7 +14,6 @@ from typing import Callable, Literal
 import pandas as pd
 
 from scripts.binner import Binner
-from scripts.events_and_modules import get_modules
 
 from lmtanalysis.Animal import AnimalPool
 from lmtanalysis.AnimalType import AnimalType
@@ -171,8 +170,7 @@ class EventsRebuilder:
         for i, build_event_module in enumerate(modules):
 
             event_chrono = Chronometer(str(build_event_module))
-            os.system('cls' if os.name == 'nt' else 'clear')
-            print(f"Processing module: {build_event_module}...")
+            print(f"Processing module: {build_event_module.__name__}...")
             build_event_module.reBuildEvent(
                 connection=self.conn,
                 file=None,
@@ -188,7 +186,7 @@ class EventsRebuilder:
 
     def rebuild(
         self,
-        events: list[str] | set[str],
+        modules: set[ModuleType],
         progress_callback: Callable[[int, int], None] | None = None,
     ):
         """Rebuild events in the database from 'self.start' to 'self.end' using
@@ -198,12 +196,10 @@ class EventsRebuilder:
         messages (used for updating the UI in app). Otherwise, progress will be
         printed to the console.
         """
-        if not events:
-            print("No events to rebuild.")
+        if not modules:
+            print("No modules to rebuild.")
             self.update_progression(1, 1, progress_callback)
             return
-
-        modules = get_modules(events)
 
         self.check_memory()
 

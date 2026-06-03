@@ -3,14 +3,14 @@
 """
 
 print("Starting LMT-EYE...")
+from pathlib import Path
+
 # ================ APP INFO ================
 # command for executable creation (run in terminal at project root):
-# pyinstaller -p LMT --onefile --icon=res/lmt_eye_icon.png --add-data "res/lmt_eye_icon.png;res" --add-data "res/template;res/template" --add-data "res/assets;res/assets" --add-data "res/mouse_run.gif;res" lmt_eye_app.py
+# pyinstaller -p LMT --onefile --icon=res/lmt_eye_icon.png --add-data "res/lmt_eye_icon.png;res" --add-data "res/template;res/template" --add-data "res/assets;res/assets" --add-data "res/mouse_run.gif;res" lmt_eye.py
 
 APP_VERSION = "2.0"
 APP_RELEASE = "2026-06-02"
-
-from pathlib import Path
 
 APP_PATH = Path(__file__).parent
 ICON_PATH = APP_PATH / "res" / "lmt_eye_icon.png"

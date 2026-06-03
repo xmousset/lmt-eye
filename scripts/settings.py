@@ -261,10 +261,8 @@ class AnalysisSettings(GenericSettings):
     output_folder : Path or str or None, optional
         Folder to save the output reports. By default, prompts user to
         select folder ('manual selection').
-    processing_limits : tuple of int or pd.Timestamp or None, optional
-        Start and end of the processing period. Each can be an integer frame
-        number or a timestamp string. Defaults to (None, None).
-        *(timestamp string example: "2026-01-01 00:00:00")*
+    processing_limits : tuple of str, or None, optional
+        Start and end of the processing period. Defaults to (None, None).
     processing_window : int, optional
         Load a maximum of 'processing_window' *frames* simultaneously. If the
         data is bigger than this window, the computation will be splitted into
@@ -333,15 +331,6 @@ class AnalysisSettings(GenericSettings):
         if isinstance(new_dict["events"], set):
             new_dict["events"] = list(new_dict["events"])
 
-        new_dict["processing_limits"] = tuple(
-            (
-                ts.isoformat(sep=" ", timespec="seconds")
-                if ts is not None
-                else None
-            )
-            for ts in initial_dict["processing_limits"]
-        )
-
         if new_dict["database_path"] is not None:
             new_dict["database_path"] = str(new_dict["database_path"])
 
@@ -361,11 +350,6 @@ class AnalysisSettings(GenericSettings):
             new_dict["events"] = set()
         elif isinstance(new_dict["events"], list):
             new_dict["events"] = set(new_dict["events"])
-
-        new_dict["processing_limits"] = tuple(
-            pd.Timestamp(ts) if ts is not None else None
-            for ts in initial_dict["processing_limits"]
-        )
 
         if new_dict["database_path"] is not None:
             new_dict["database_path"] = Path(new_dict["database_path"])
@@ -393,9 +377,9 @@ class AnalysisSettings(GenericSettings):
         self.filter_stop: bool = defaults["filter_stop"]
         self.fps: int = defaults["fps"]
         self.processing_window: int = defaults["processing_window"]
-        self.processing_limits: tuple[
-            int | pd.Timestamp | None, int | pd.Timestamp | None
-        ] = defaults["processing_limits"]
+        self.processing_limits: tuple[str | None, str | None] = defaults[
+            "processing_limits"
+        ]
         self.rebuild_events: bool = defaults["rebuild_events"]
         self.time_window: int = defaults["time_window"]
         self.utc_offset: float = defaults["utc_offset"]
@@ -419,6 +403,27 @@ class AnalysisSettings(GenericSettings):
         self.events.add("Stop isolated")
         self.events.add("Move isolated")
         self.events.add("Move in contact")
+
+    def convert_processing_limits(
+        self,
+    ) -> tuple[int | pd.Timestamp | None, int | pd.Timestamp | None]:
+        """Convert the processing limits from string to int or pd.Timestamp or
+        None."""
+        start, end = self.processing_limits
+
+        if isinstance(start, str):
+            try:
+                start = pd.Timestamp(start)
+            except:
+                start = int(start)
+
+        if isinstance(end, str):
+            try:
+                end = pd.Timestamp(end)
+            except:
+                end = int(end)
+
+        return (start, end)
 
 
 class ComparisonSettings(GenericSettings):

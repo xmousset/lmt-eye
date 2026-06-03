@@ -59,11 +59,11 @@ def generic_reports(
     # ================ Graph style ================
 
     if comparator == "RFID":
+        plot = px.line
+
         points_per_rfid = df.groupby("RFID").size()
-        if (points_per_rfid == 1).all():
-            plot = px.scatter
-        else:
-            plot = px.line
+        if (points_per_rfid == 1).any():
+            plot_param["markers"] = True
     else:
         plot = px.scatter
 

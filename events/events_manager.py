@@ -4,8 +4,10 @@
 @author: xmousset
 """
 
-from typing import Dict, List, Optional, Tuple
+from pathlib import Path
+import importlib.util
 from types import ModuleType
+from typing import Optional
 
 from events.official import (
     BuildEventApproachContact,
@@ -57,7 +59,7 @@ from events.official import (
     BuildEventWaterPoint,
 )
 
-ALL_EVENTS: Dict[str, Optional[ModuleType | str]] = {
+OFFICIAL_EVENTS: dict[str, ModuleType | str | None] = {
     "Approach": None,
     "Approach contact": BuildEventApproachContact,
     "Approach rear": BuildEventApproachRear,
@@ -127,8 +129,8 @@ ALL_EVENTS: Dict[str, Optional[ModuleType | str]] = {
     "seq oral oral - oral genital": BuildEventOralSideSequence,
     "Side by side Contact": BuildEventSideBySide,
     "Side by side Contact, opposite way": BuildEventSideBySideOpposite,
-    "SniffLeft": BuildEventObjectSniffingNor,
-    "SniffRight": "SniffLeft",
+    # "SniffLeft": BuildEventObjectSniffingNor,
+    # "SniffRight": "SniffLeft",
     "Social approach": BuildEventSocialApproach,
     "Social escape": BuildEventSocialEscape,
     "Stop": None,
@@ -143,39 +145,91 @@ ALL_EVENTS: Dict[str, Optional[ModuleType | str]] = {
 }
 
 
-def get_module(event_name: str):
+def _load_custom_events() -> dict[str, ModuleType]:
     """
-    Retrieve the module object associated with a given event name.
+    Load all custom event modules from events/custom directory.
+    (Similar to OFFICIAL_EVENTS but for custom events)
 
-    This function looks up the provided event name in the ALL_EVENTS mapping.
-    If the mapping returns a string, it recursively resolves the actual module.
-    If the event name is not found or the module is not implemented,
-    returns None.
-
-    Args:
-        event_name (str): The name of the event to look up.
-    Returns:
-        (ModuleType | None): The module object associated with the event name,
-        or None if no corresponding module is found or implemented.
-    Raises:
-        AssertionError: If the resolved module is not None or a ModuleType instance.
+    Returns
+    -------
+    dict[str, ModuleType]
+        Dictionary with EVENT_NAME as key and module as value.
+        Example: {"Speed": <module>, "Rearing": <module>, ...}
     """
-    module = ALL_EVENTS.get(event_name)
-    if isinstance(module, str):
-        module = get_module(module)
-    assert module is None or isinstance(module, ModuleType)
-    return module
+    print("Loading custom events...")
+    custom_events_dir = Path(__file__).parent / "custom"
+    events_dict = {}
+
+    if not custom_events_dir.exists():
+        print(f"Warning: {custom_events_dir} does not exist")
+        return events_dict
+
+    # Iterate through all .py files in events/custom
+    for file_path in custom_events_dir.glob("BuildEvent*.py"):
+
+        try:
+            # Load module dynamically
+            spec = importlib.util.spec_from_file_location(
+                file_path.stem,
+                file_path,
+            )
+            assert spec is not None and spec.loader is not None
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            # Get EVENT_NAME from module and add to dict
+            if hasattr(module, "EVENT_NAME"):
+                event_name = module.EVENT_NAME
+                events_dict[event_name] = module
+                print(f"✓ {event_name}")
+            else:
+                print(
+                    f"⚠ Warning: {file_path.name} has no EVENT_NAME attribute"
+                )
+
+        except Exception as e:
+            print(f"✗ Loading error: {file_path.name}\n{e}")
+
+    print(f"Finished loading custom events. Total loaded: {len(events_dict)}")
+    return events_dict
 
 
-def get_modules(events: list[str] | set[str]):
+# Load custom events once at module import time
+CUSTOM_EVENTS: dict[str, ModuleType] = _load_custom_events()
+
+
+def get_official_events_name() -> set[str]:
+    """Return a set of official event names."""
+    return set(OFFICIAL_EVENTS.keys())
+
+
+def get_custom_events_name() -> set[str]:
+    """Return a set of custom event names."""
+    return set(CUSTOM_EVENTS.keys())
+
+
+def get_modules_from_events_name(names: list[str] | set[str]):
     """Get a set of unique modules associated with a list of event names."""
-    modules_set: set[ModuleType] = set()
+    modules: set[ModuleType] = set()
 
-    if isinstance(events, list):
-        events = set(events)
+    if isinstance(names, list):
+        names = set(names)
 
-    for event in events:
-        module = get_module(event)
-        if module is not None:
-            modules_set.add(module)
-    return modules_set
+    official_events = get_official_events_name()
+    custom_events = get_custom_events_name()
+
+    for event_name in names:
+        module = None
+
+        if event_name in official_events:
+            module = OFFICIAL_EVENTS.get(event_name, None)
+            if isinstance(module, str):
+                module = OFFICIAL_EVENTS.get(module, None)
+
+        elif event_name in custom_events:
+            module = CUSTOM_EVENTS.get(event_name, None)
+
+        if isinstance(module, ModuleType):
+            modules.add(module)
+
+    return modules

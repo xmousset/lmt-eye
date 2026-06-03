@@ -72,6 +72,8 @@ class Binner:
         self.last_frame = last_frame
         self.last_timestamp = last_timestamp
         self.utc_offset = pd.Timedelta(hours=utc_offset)
+        self.start_frame = 1
+        self.end_frame = last_frame
         self.set_parameters(bin_size, bin_rounding, start, end, fps)
 
         print(f"Binner initialized with:")
@@ -135,24 +137,30 @@ class Binner:
 
         if isinstance(start, pd.Timestamp):
             start = self.time_to_frame(start)
-        if start is None or start < 1:
-            self.start_frame = 1
-        elif start > self.last_frame:
-            raise ValueError(
-                f"start_frame out of range (start_frame = {start} "
-                f"> last_frame = {self.last_frame})"
-            )
-        else:
-            self.start_frame = start
+
+        if start is not None:
+            if start < 1:
+                self.start_frame = 1
+            elif start > self.last_frame:
+                raise ValueError(
+                    f"start_frame out of range (start_frame = {start} "
+                    f"> last_frame = {self.last_frame})"
+                )
+            else:
+                self.start_frame = start
 
         if isinstance(end, pd.Timestamp):
             end = self.time_to_frame(end)
-        if end is None or end > self.last_frame:
-            self.end_frame = self.last_frame
-        elif end < 1:
-            raise ValueError(f"end_frame out of range (end_frame = {end} < 1)")
-        else:
-            self.end_frame = end
+
+        if end is not None:
+            if end > self.last_frame:
+                self.end_frame = self.last_frame
+            elif end < 1:
+                raise ValueError(
+                    f"end_frame out of range (end_frame = {end} < 1)"
+                )
+            else:
+                self.end_frame = end
 
         if self.start_frame >= self.end_frame:
             raise ValueError(
@@ -169,11 +177,10 @@ class Binner:
         # get the starting frame number of the first bin
         if self.bin_rounding:
             # it is a negative integer if bins start at round hours
-            dt_0 = self.frame_to_time(self.bin_size)
-            dt_bin_0 = dt_0.floor(f"{self.bin_size // (60 * self.fps)}min")
-            start_frame_bin_1 = self.time_to_frame(dt_bin_0)
-            while start_frame_bin_1 + self.bin_size < self.start_frame:
-                start_frame_bin_1 += self.bin_size
+            time_1 = self.frame_to_time(1).floor(
+                f"{self.bin_size // (self.fps)}s"
+            )
+            start_frame_bin_1 = self.time_to_frame(time_1)
         else:
             start_frame_bin_1 = self.start_frame
 
