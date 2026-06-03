@@ -5,7 +5,7 @@
 print("Starting LMT-EYE...")
 # ================ APP INFO ================
 # command for executable creation (run in terminal at project root):
-# pyinstaller -p LMT --onefile --icon=LMT/dim_c_brains/res/lmt_eye_icon.png --add-data "LMT/dim_c_brains/res/lmt_eye_icon.png;dim_c_brains/res" --add-data "LMT/dim_c_brains/res/template;dim_c_brains/res/template" --add-data "LMT/dim_c_brains/res/assets;dim_c_brains/res/assets" --add-data "LMT/dim_c_brains/res/mouse_run.gif;dim_c_brains/res" LMT/dim_c_brains/lmt_eye_app.py
+# pyinstaller -p LMT --onefile --icon=res/lmt_eye_icon.png --add-data "res/lmt_eye_icon.png;res" --add-data "res/template;res/template" --add-data "res/assets;res/assets" --add-data "res/mouse_run.gif;res" lmt_eye_app.py
 
 APP_VERSION = "2.0"
 APP_RELEASE = "2026-06-02"
