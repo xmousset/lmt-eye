@@ -41,7 +41,6 @@ from lmtanalysis.AnimalType import AnimalType
 from lmtanalysis.ParametersMouse import ParametersMouse
 from lmtanalysis.ParametersRat import ParametersRat
 
-
 idAnimalColor = [None, "red", "green", "purple", "orange"]
 
 from enum import Enum
@@ -55,30 +54,30 @@ class Animal:
 
     def __init__(
         self,
-        baseId,
-        RFID,
-        name=None,
-        genotype=None,
-        user1=None,
-        age=None,
-        sex=None,
-        strain=None,
-        setup=None,
-        conn=None,
-        animalType=AnimalType.MOUSE,
+        baseId: int,
+        RFID: str,
+        name: str | None = None,
+        genotype: str | None = None,
+        user1: str | None = None,
+        age: int | None = None,
+        sex: str | None = None,
+        strain: str | None = None,
+        setup: str | None = None,
+        conn: sqlite3.Connection | None = None,
+        animalType: AnimalType = AnimalType.MOUSE,
     ):
-        self.baseId = baseId
-        self.RFID = RFID
-        self.name = name
-        self.genotype = genotype
-        self.user1 = user1
-        self.age = age
-        self.sex = sex
-        self.strain = strain
-        self.setup = setup
-        self.conn = conn
-        self.detectionDictionary = {}
-        self.parameters = None
+        self.baseId: int = baseId
+        self.RFID: str = RFID
+        self.name: str | None = name
+        self.genotype: str | None = genotype
+        self.user1: str | None = user1
+        self.age: int | None = age
+        self.sex: str | None = sex
+        self.strain: str | None = strain
+        self.setup: str | None = setup
+        self.conn: sqlite3.Connection | None = conn
+        self.detectionDictionary: Dict[int, Detection] = {}
+        self.parameters: ParametersMouse | ParametersRat | None = None
         self.setAnimalType(animalType)
 
     def setAnimalType(self, animalType):
@@ -1465,7 +1464,7 @@ class AnimalPool:
 
     def __init__(self):
 
-        self.animalDictionary = {}
+        self.animalDictionary: Dict[int, Animal] = {}
         self.detectionStartFrame = None
         self.detectionEndFrame = None
 
@@ -1524,28 +1523,33 @@ class AnimalPool:
         field_names = [i[0] for i in cursor.description]
         print("Fields available in lmtanalysis: ", field_names)
 
-        # build query
-        query = "SELECT "
-        nbField = len(field_names)
-        if nbField == 3:
-            query += "ID,RFID,NAME"
-        elif nbField == 4:
-            query += "ID,RFID,NAME,GENOTYPE"
-        elif nbField == 5:
-            query += "ID,RFID,NAME,GENOTYPE,IND"
-        elif nbField == 7:
-            query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN"
-        elif nbField == 8:
-            query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN,SETUP"
-        elif nbField == 9:
+        # OLD VERSION # build query
+        # query = "SELECT "
+        # nbField = len(field_names)
+        # if nbField == 3:
+        #     query += "ID,RFID,NAME"
+        # elif nbField == 4:
+        #     query += "ID,RFID,NAME,GENOTYPE"
+        # elif nbField == 5:
+        #     query += "ID,RFID,NAME,GENOTYPE,IND"
+        # elif nbField == 7:
+        #     query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN"
+        # elif nbField == 8:
+        #     query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN,SETUP"
+        # elif nbField == 9:
 
-            if "IND" in field_names:
-                query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN,SETUP,IND"
-            if "TREATMENT" in field_names:
-                query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN,SETUP,TREATMENT"
+        #     if "IND" in field_names:
+        #         query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN,SETUP,IND"
+        #     if "TREATMENT" in field_names:
+        #         query += "ID,RFID,NAME,GENOTYPE,AGE,SEX,STRAIN,SETUP,TREATMENT"
 
-        query += " FROM ANIMAL ORDER BY GENOTYPE"
-        print("SQL Query: " + query)
+        # query += " FROM ANIMAL ORDER BY GENOTYPE"
+        # print("SQL Query: " + query)
+
+        # NEW VERSION # Build dynamic query with available fields
+        available_fields = ", ".join(field_names)
+        query = f"SELECT {available_fields} FROM ANIMAL ORDER BY GENOTYPE"
+        print(f"SQL Query: {query}")
 
         cursor.execute(query)
         rows = cursor.fetchall()
@@ -1556,57 +1560,38 @@ class AnimalPool:
         for row in rows:
 
             animal = None
-            if len(row) == 3:
-                animal = Animal(row[0], row[1], name=row[2], conn=conn)
-            if len(row) == 4:
-                animal = Animal(
-                    row[0], row[1], name=row[2], genotype=row[3], conn=conn
-                )
-            if len(row) == 5:
-                animal = Animal(
-                    row[0],
-                    row[1],
-                    name=row[2],
-                    genotype=row[3],
-                    user1=row[4],
-                    conn=conn,
-                )
-            if len(row) == 7:
-                animal = Animal(
-                    row[0],
-                    row[1],
-                    name=row[2],
-                    genotype=row[3],
-                    age=row[4],
-                    sex=row[5],
-                    strain=row[6],
-                    conn=conn,
-                )
-            if len(row) == 8:
-                animal = Animal(
-                    row[0],
-                    row[1],
-                    name=row[2],
-                    genotype=row[3],
-                    age=row[4],
-                    sex=row[5],
-                    strain=row[6],
-                    setup=row[7],
-                    conn=conn,
-                )
-            if len(row) == 9:
-                animal = Animal(
-                    row[0],
-                    row[1],
-                    name=row[2],
-                    genotype=row[3],
-                    age=row[4],
-                    sex=row[5],
-                    strain=row[6],
-                    setup=row[7],
-                    user1=row[8],
-                    conn=conn,
-                )
+            animal_data = {
+                "ID": None,
+                "RFID": None,
+                "NAME": None,
+                "GENOTYPE": None,
+                "SEX": None,
+                "AGE": None,
+                "STRAIN": None,
+                "SETUP": None,
+                "USER1": None,
+            }
+            for i, field in enumerate(field_names):
+                if field in animal_data:
+                    animal_data[field] = row[i]
+                elif field == "IND" or field == "TREATMENT":
+                    animal_data["USER1"] = row[i]
+
+            assert animal_data["ID"] is not None, "Animal ID missing"
+            assert animal_data["RFID"] is not None, "Animal RFID missing"
+
+            animal = Animal(
+                baseId=animal_data["ID"],
+                RFID=animal_data["RFID"],
+                name=animal_data["NAME"],
+                genotype=animal_data["GENOTYPE"],
+                age=animal_data["AGE"],
+                sex=animal_data["SEX"],
+                strain=animal_data["STRAIN"],
+                setup=animal_data["SETUP"],
+                user1=animal_data["USER1"],
+                conn=conn,
+            )
 
             if animal != None:
                 self.animalDictionary[animal.baseId] = animal

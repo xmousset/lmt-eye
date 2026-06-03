@@ -26,18 +26,6 @@ from widgets.pyqt6_tools import get_btn_style
 class UpdateDatabaseInfo(QDialog):
     """Dialog to update animals information in the database."""
 
-    AVAILABLE_COLUMNS = {
-        "ID",
-        "RFID",
-        "GENOTYPE",
-        "NAME",
-        "AGE",
-        "SEX",
-        "STRAIN",
-        "SETUP",
-        "IND",
-    }
-
     @staticmethod
     def smart_cast(s: str):
         """Try to convert a string to int or float if possible, otherwise
@@ -183,43 +171,19 @@ class UpdateDatabaseInfo(QDialog):
             self.df.at[row, col_name] = correct_value
 
     def on_add_column(self):
-        #######################################
-        #   Choose any column name   #
-        #######################################
-        # col_name, ok = QInputDialog.getText(self, "Add Column", "Column name:")
-        # col_name = col_name.strip().upper()
-        # if not ok:
-        #     return
-        # if not col_name:
-        #     QMessageBox.information(self, "Cancel", f"Invalid column name.")
-        #     return
-        # for col in self.df.columns:
-        #     if col_name == col:
-        #         QMessageBox.information(
-        #             self, "Cancel", f"Column '{col_name}' already exists."
-        #         )
-        #         return
-
-        #######################################
-        #   Choose column name from list   #
-        #######################################
-        available = list(self.AVAILABLE_COLUMNS - set(self.df.columns))
-        if not available:
-            QMessageBox.information(
-                self,
-                "No Available Columns",
-                "All available columns have already been added.",
-            )
+        col_name, ok = QInputDialog.getText(self, "Add Column", "Column name:")
+        col_name = col_name.strip().upper()
+        if not ok:
             return
-        col_name, ok = QInputDialog.getItem(
-            self,
-            "Add Column",
-            "Select column to add:",
-            available,
-            editable=False,
-        )
-        if not ok or not col_name:
+        if not col_name:
+            QMessageBox.information(self, "Cancel", f"Invalid column name.")
             return
+        for col in self.df.columns:
+            if col_name == col:
+                QMessageBox.information(
+                    self, "Cancel", f"Column '{col_name}' already exists."
+                )
+                return
 
         dlg = SQLTypeDialog(self)
         if not dlg.exec():
