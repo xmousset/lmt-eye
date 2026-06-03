@@ -28,9 +28,9 @@ Please feel free to submit a Pull Request to add your own custom events for ever
 
 ```
 lmt-eye/
-├── lmt_eye.py                 # Main application entry pointexecutables
+├── lmt_eye.py                 # Main application
 ├── requirements.txt           # Python dependencies
-├── lmtanalysis/               # scripts from lmt-analysis 
+├── lmtanalysis/               # Scripts from lmt-analysis 
 │   ├── Animal.py              # Animal and AnimalPool class
 │   └── ...
 ├── events/                    # Behavioral events builder
