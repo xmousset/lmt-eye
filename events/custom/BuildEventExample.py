@@ -65,6 +65,7 @@ def reBuildEvent(
 
     # DO NOT MODIFY
     # ----------------
+    # (unless you know what you are doing)
     if pool is None:
         pool = AnimalPool()
         pool.loadAnimals(connection)

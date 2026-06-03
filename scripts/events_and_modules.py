@@ -7,7 +7,7 @@
 from typing import Dict, List, Optional, Tuple
 from types import ModuleType
 
-from official_events import (
+from events.official import (
     BuildEventApproachContact,
     BuildEventApproachRear,
     BuildEventCenterPeripheryLocation,
