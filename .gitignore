@@ -1,4 +1,14 @@
+# ignore Python bytecode files
 __pycache__/
+
+# ignore database files
+*.sqlite
+
+# ignore app creation files
+build/
+dist/
+*.spec
+
+# ignore test files
 test*.ipynb
 test*.py
-*.sqlite
