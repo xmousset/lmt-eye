@@ -14,6 +14,7 @@ from typing import Callable, Literal
 import pandas as pd
 
 from scripts.binner import Binner
+from events.events_manager import sort_in_official_order
 
 from lmtanalysis.Animal import AnimalPool
 from lmtanalysis.AnimalType import AnimalType
@@ -167,7 +168,9 @@ class EventsRebuilder:
         ]
         self.update_progression(*progression)
 
-        for i, build_event_module in enumerate(modules):
+        for i, build_event_module in enumerate(
+            sort_in_official_order(modules)
+        ):
 
             event_chrono = Chronometer(str(build_event_module))
             print(f"Processing module: {build_event_module.__name__}...")

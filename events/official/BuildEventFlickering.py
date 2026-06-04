@@ -12,15 +12,16 @@ from lmtanalysis.Animal import AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Event import deleteEventTimeLineInBase
 from lmtanalysis.TaskLogger import TaskLogger
 
-
-# name of the event to build (should correspond to the file name)
-EVENT_NAME = "Flickering"
+# EVENT INFO
+# ----------------
+EVENTS_NAME = ["Flickering"]
 
 
 # DO NOT MODIFY THIS PART, UNLESS YOU KNOW WHAT YOU ARE DOING
 def flush(connection):
     """Flush event in database"""
-    deleteEventTimeLineInBase(connection, EVENT_NAME)
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)
 
 
 def reBuildEvent(
@@ -118,7 +119,7 @@ def reBuildEvent(
 
         flickeringTimeLine = EventTimeLine(
             conn=connection,
-            eventName=EVENT_NAME,
+            eventName=EVENTS_NAME[0],
             idA=animal_key,
             idB=None,
             idC=None,
@@ -206,8 +207,9 @@ def reBuildEvent(
     # ----------------
     # log process for debugging and record keeping
     t = TaskLogger(connection)
-    if tmin is None or tmax is None:
-        t.addLog("Build Event Flickering (tmin or tmax is None)")
-    else:
-        t.addLog("Build Event Flickering", tmin=tmin, tmax=tmax)
-    print("Rebuild event finished.")
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
+        else:
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {EVENTS_NAME}")

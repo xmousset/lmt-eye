@@ -15,13 +15,15 @@ from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 # EVENT INFO
 # ----------------
 
-EVENT_NAME = "Example event"
+EVENTS_NAME: list[str] = ["Example event"]
+# MUST be a list of event names (even if there is only one event in the file)
+# it allows the use of multiple events in the same file if needed
 
-EVENT_DESCRIPTION = """
+EVENTS_DESCRIPTION: str = """
     This is an example of a custom event. It is not an official event, but it can be built and analysed like any other event.
     You can use this file as a template to create your own custom events.
     To do so, copy and paste this file, rename it (e.g. BuildEventMyEvent.py), and modify the code in the reBuildEvent function.
-    Make sure to change the EVENT_NAME variable and the docstring of the reBuildEvent function to describe your event and its parameters.
+    Make sure to change the EVENTS_NAME variable and the docstring of the reBuildEvent function to describe your event and its parameters.
 """
 
 
@@ -29,7 +31,8 @@ EVENT_DESCRIPTION = """
 # ----------------
 def flush(connection) -> None:
     """Flush event in database"""
-    deleteEventTimeLineInBase(connection, EVENT_NAME)
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)
 
 
 # YOUR EVENT
@@ -87,7 +90,7 @@ def reBuildEvent(
         # then saved in database at the end of the process
         your_event_TimeLine = EventTimeLine(
             conn=None,
-            eventName=EVENT_NAME,
+            eventName=EVENTS_NAME[0],
             idA=animal.baseId,
             idB=None,
             idC=None,
@@ -152,8 +155,9 @@ def reBuildEvent(
     # ----------------
     # log process for debugging and record keeping
     t = TaskLogger(connection)
-    if tmin is None or tmax is None:
-        t.addLog(f"Build Event {EVENT_NAME} (tmin or tmax is None)")
-    else:
-        t.addLog(f"Build Event {EVENT_NAME}", tmin=tmin, tmax=tmax)
-    print(f"Rebuild {EVENT_NAME} event finished.")
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
+        else:
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {EVENTS_NAME}")

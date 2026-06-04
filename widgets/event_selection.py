@@ -60,12 +60,12 @@ class EventSelectionWindow(QDialog):
         max_row = (len(events_dict) + max_col - 1) // max_col
         row = 0
         col = 0
-        for name in list(events_dict.keys()):
+        for name in sorted(events_dict.keys()):
             cb = QCheckBox(name)
             module = events_dict[name]
             if isinstance(module, ModuleType):
-                if getattr(module, "EVENT_DESCRIPTION", None) is not None:
-                    cb.setToolTip(module.EVENT_DESCRIPTION)
+                if getattr(module, "EVENTS_DESCRIPTION", None) is not None:
+                    cb.setToolTip(module.EVENTS_DESCRIPTION)
             grid_layout.addWidget(cb, row, col)
             self.analysis_options.append(cb)
             if name in self.selected_events:
