@@ -1,89 +1,152 @@
-'''
+"""
 Created on 23 mai 2023
 
 @author: eye
-'''
-import sqlite3
-from time import *
-from lmtanalysis.Chronometer import Chronometer
-from lmtanalysis.Animal import *
-from lmtanalysis.Detection import *
-from lmtanalysis.Measure import *
-import numpy as np
-from lmtanalysis.Event import *
-from lmtanalysis.Measure import *
-#from affine import Affine
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-from lmtanalysis.TaskLogger import TaskLogger
-from lmtanalysis import EventTimeLineCache
-from lmtanalysis.EventTimeLineCache import EventTimeLineCached
-from lmtanalysis.Parameters import *
+@modified on by xmousset
+"""
 
-def flush( connection ):
-    ''' flush event in database '''
-    deleteEventTimeLineInBase(connection, "Corner" )
-    deleteEventTimeLineInBase(connection, "Corner 0" )
-    deleteEventTimeLineInBase(connection, "Corner 1" )
-    deleteEventTimeLineInBase(connection, "Corner 2" )
-    deleteEventTimeLineInBase(connection, "Corner 3" )
-    
-def reBuildEvent( connection, file, tmin=None, tmax=None, pool = None, animalType = None ): 
-    
-    parameters = getAnimalTypeParameters( animalType )
-    
-    ''' use the pool provided or create it'''
-    if ( pool == None ):
-        pool = AnimalPool( )
-        pool.loadAnimals( connection )
-        pool.loadDetection( start = tmin, end = tmax, lightLoad=True )
-    '''
-    Event Corner Stop
-    - the animal is in idling for more than a certain time in one of the corners of the cage
-    corner 0: up left; corner 1: up right; corner 2: low right; corner 3: low left
-    '''
-    
-    for animal in pool.animalDictionary.keys():
-        print(pool.animalDictionary[animal])
-        
-        eventName = "Corner"
-        print ( "A is idling in the corner zone")        
-        print ( eventName )
-        
-        cornerTimeLine = {}
-        for k in [0, 1, 2, 3]:
-            cornerTimeLine[k] = EventTimeLine( None, f"{eventName} {k}" , animal , None , None , None , loadEvent=False )
-       
-        animalA = pool.animalDictionary[animal]
-        print( 'Animal RFID: ', animalA.RFID )
-        dicA = animalA.detectionDictionary
-        
-        resultCorner = {}
-        for k in [0, 1, 2, 3]:
-            resultCorner[k] = {}
-        
-        for t in dicA.keys():
-            for k in [0, 1, 2, 3]:
-                distanceToEventLocation = animalA.getDistanceToPoint( t, parameters.cornerCoordinatesOpenFieldArea[k][0], parameters.cornerCoordinatesOpenFieldArea[k][1] )
+import sqlite3
+import numpy as np
+from typing import Any
+
+from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Parameters import get_scale_cm_over_px
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.EventTimeLineCache import EventTimeLineCached
+from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
+from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
+
+# EVENT INFO
+# ----------------
+
+EVENTS_NAME: list[str] = [
+    "Corner",
+    "Corner NW",
+    "Corner NE",
+    "Corner SW",
+    "Corner SE",
+]
+
+EVENTS_DESCRIPTION: str = """
+    Detects when the animal is in one of the arena corners (NW, NE, SW, SE).
+    Each corner is a 5 cm radius circle.
+    Events require minimum 6-frame duration (0.2s), with gaps ≤3 frames merged.
+"""
+
+
+# DO NOT MODIFY
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)
+
+
+def reBuildEvent(
+    connection: sqlite3.Connection,
+    file: Any | None = None,
+    tmin: int | None = None,
+    tmax: int | None = None,
+    pool: AnimalPool | None = None,
+    animalType: AnimalType = AnimalType.MOUSE,
+) -> None:
+    """
+    Rebuilds the appropriate event for all animals in the database.
+
+    Parameters
+    ----------
+    connection : sqlite3.Connection
+        The SQLite database connection.
+    file : Any or None, optional
+        The file path or object.
+        Can be used by EventTimeLineCached to cache event loading.
+        Default is None.
+    tmin : int or None, optional
+        Start time for detections (in frame). If None, it will load all
+        detections from the start.
+    tmax : int or None, optional
+        End time for detections (in frame). If None, it will load all
+        detections until the end.
+    pool : AnimalPool or None, optional
+        AnimalPool instance (create new one if None, using tmin and tmax).
+    animalType : AnimalType, optional
+        The appropriate animal type. Default is MOUSE.
+
+    Returns
+    -------
+    None
+    """
+
+    # Parameters
+    # ----------------
+    cm_over_px = get_scale_cm_over_px(animalType)
+
+    corners_coord = {
+        "NW": (114, 63),
+        "NE": (398, 63),
+        "SE": (398, 353),
+        "SW": (114, 353),
+    }  # in px
+
+    radius = 5 / cm_over_px  # 5 cm radius around the corner
+    min_duration_in_corner = 6 * oneSecond  # minimum duration for valid event
+    merging_gap = 3  # merge events that are separated by 3 frames or less
+
+    # Events creation
+    # ----------------
+    if pool is None:
+        pool = AnimalPool()
+        pool.loadAnimals(connection)
+        pool.loadDetection(start=tmin, end=tmax, lightLoad=True)
+
+    for animal in pool.animalDictionary.values():
+
+        result_corner: dict[str, dict[int, bool]] = {}
+        cornerTimeLine: dict[str, EventTimeLine] = {}
+
+        for k in ["NW", "NE", "SW", "SE"]:
+            result_corner[k] = {}
+            cornerTimeLine[k] = EventTimeLine(
+                conn=None,
+                eventName=f"{EVENTS_NAME[0]} {k}",
+                idA=animal.baseId,
+                idB=None,
+                idC=None,
+                idD=None,
+                loadEvent=False,
+                minFrame=tmin,
+                maxFrame=tmax,
+            )
+
+        for f in sorted(animal.detectionDictionary.keys()):
+            for k in ["NW", "NE", "SW", "SE"]:
+                distanceToEventLocation = animal.getDistanceToPoint(
+                    f,
+                    corners_coord[k][0],
+                    corners_coord[k][1],
+                )
                 if distanceToEventLocation == None:
-                    print('Distance cannot be computed.')
+                    print("Distance cannot be computed.")
                     break
-                if (distanceToEventLocation <= parameters.MAX_DISTANCE_TO_POINT*1):
-                    resultCorner[k][t] = True
-                    
+                if distanceToEventLocation <= radius:
+                    result_corner[k][f] = True
                     break
-        
-        for k in [0, 1, 2, 3]:
-            cornerTimeLine[k].reBuildWithDictionary( resultCorner[k] )
-            cornerTimeLine[k].removeEventsBelowLength( maxLen = parameters.MIN_DURATION_IN_CORNER )
-            cornerTimeLine[k].mergeCloseEvents( numberOfFrameBetweenEvent = 3 )
-            cornerTimeLine[k].endRebuildEventTimeLine(connection)        
-    
-    
-    # log process
-    
-    t = TaskLogger( connection )
-    t.addLog( "Build Event Corner" , tmin=tmin, tmax=tmax )
-                       
-    print( "Rebuild event finished." )
-        
+
+        # Must be kept
+        # ----------------
+        for k in ["NW", "NE", "SW", "SE"]:
+            cornerTimeLine[k].reBuildWithDictionary(result_corner[k])
+            cornerTimeLine[k].removeEventsBelowLength(min_duration_in_corner)
+            cornerTimeLine[k].mergeCloseEvents(merging_gap)
+            cornerTimeLine[k].endRebuildEventTimeLine(connection)
+
+    # Must be kept
+    # ----------------
+    # log process for debugging and record keeping
+    f = TaskLogger(connection)
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            f.addLog(f"Build Event {event_name} (tmin or tmax is None)")
+        else:
+            f.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {EVENTS_NAME}")

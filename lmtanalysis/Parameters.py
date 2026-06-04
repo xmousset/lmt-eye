@@ -1,13 +1,15 @@
-'''
+"""
 Created on 20 dec. 2022
 
 @author: Fab
-'''
+"""
+
 from lmtanalysis.AnimalType import AnimalType
 from lmtanalysis.ParametersMouse import ParametersMouse
 from lmtanalysis.ParametersRat import ParametersRat
 
-def getAnimalTypeParameters( animalType ):
+
+def getAnimalTypeParameters(animalType):
 
     if animalType == AnimalType.MOUSE:
         return ParametersMouse()
@@ -17,7 +19,16 @@ def getAnimalTypeParameters( animalType ):
 
     print("Error: animal type is None")
     quit()
-    
-
 
     return None
+
+
+def get_scale_cm_over_px(animal_type: AnimalType) -> float:
+    """Returns the scale in cm/px for the given animal type."""
+    match animal_type:
+        case AnimalType.MOUSE:
+            return ParametersMouse().scaleFactor
+        case AnimalType.RAT:
+            return ParametersRat().scaleFactor
+        case _:
+            raise ValueError("Error: animal type does not exist.")

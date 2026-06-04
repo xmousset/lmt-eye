@@ -8,16 +8,23 @@ import sqlite3
 import numpy as np
 from typing import Any
 
-from lmtanalysis.Animal import AnimalPool, AnimalType, EventTimeLine
-from lmtanalysis.Event import deleteEventTimeLineInBase
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Parameters import get_scale_cm_over_px
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.Animal import AnimalPool, AnimalType, EventTimeLine
 
 # EVENT INFO
 # ----------------
 EVENTS_NAME = ["Flickering"]
 
+EVENTS_DESCRIPTION = """
+    Detects when the animal is flickering, i.e., when it is moving very fast
+    but without much displacement (e.g., during a tremor or a seizure).
+    Flickering is calculated on 19 frames (centered window, equal to 0.6 second)
+    and with at least 7 frames (0.2 second).
+"""
 
-# DO NOT MODIFY THIS PART, UNLESS YOU KNOW WHAT YOU ARE DOING
+
 def flush(connection):
     """Flush event in database"""
     for event_name in EVENTS_NAME:
@@ -30,7 +37,7 @@ def reBuildEvent(
     tmin: int | None = None,
     tmax: int | None = None,
     pool: AnimalPool | None = None,
-    animalType: AnimalType | None = AnimalType.MOUSE,
+    animalType: AnimalType = AnimalType.MOUSE,
     window: int = 19,
     event_min_frames: int = 6,
     flick_when_few_frames: bool = False,
@@ -91,23 +98,16 @@ def reBuildEvent(
 
     # Flickering Criteria
     # ----------------
-    match animalType:
-        case AnimalType.MOUSE:
-            # 81 (px/frame)² = 9 px/frame ~ 1.6 cm/frame minimum max_speed
-            # 16 (px/frame)² = 4 px/frame ~ 0.70 cm/frame min speed difference
-            criteria = {
-                "min_speed": 81,
-                "speed_displacement_diff": 16,
-            }
-        case AnimalType.RAT:
-            # 81 (px/frame)² = 9 px/frame ~ 1.6 cm/frame minimum max_speed
-            # 16 (px/frame)² = 4 px/frame ~ 0.70 cm/frame min speed difference
-            criteria = {
-                "min_speed": 81,
-                "speed_displacement_diff": 16,
-            }
-        case _:
-            raise ValueError("Animal type not supported for flickering event.")
+    cm_over_px = get_scale_cm_over_px(animalType)
+
+    criteria = {
+        "min_speed_cm": 1.6,  # 1.6 cm/frame minimum max_speed
+        "speed_displacement_diff_cm": 0.7,  # 0.70 cm/frame min speed difference
+    }
+    criteria["min_speed_px_2"] = (criteria["min_speed_cm"] / cm_over_px) ** 2
+    criteria["speed_displacement_diff_px_2"] = (
+        criteria["speed_displacement_diff_cm"] / cm_over_px
+    ) ** 2
 
     half_w = window // 2
     left_w = half_w
@@ -183,16 +183,16 @@ def reBuildEvent(
             local_vx = vx[start : end + 1]
             local_vy = vy[start : end + 1]
 
-            speed = local_vx**2 + local_vy**2
-            max_speed = np.max(speed)
-            mean_speed = np.mean(speed)
-            displacement = np.mean(local_vx) ** 2 + np.mean(local_vy) ** 2
+            speed_2 = local_vx**2 + local_vy**2
+            max_speed_2 = np.max(speed_2)
+            mean_speed_2 = np.mean(speed_2)
+            displacement_2 = np.mean(local_vx) ** 2 + np.mean(local_vy) ** 2
 
             # criteria for flickering
             if (
-                max_speed > criteria["min_speed"]
-                and mean_speed - displacement
-                > criteria["speed_displacement_diff"]
+                max_speed_2 > criteria["min_speed_px_2"]
+                and mean_speed_2 - displacement_2
+                > criteria["speed_displacement_diff_px_2"]
             ):
                 result[f_key] = True
 

@@ -7,6 +7,7 @@ import numpy as np
 from typing import Any
 
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Parameters import get_scale_cm_over_px
 from lmtanalysis.Event import deleteEventTimeLineInBase
 from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
@@ -27,7 +28,7 @@ EVENTS_DESCRIPTION: str = """
 """
 
 
-# DO NOT MODIFY
+# Must be kept
 # ----------------
 def flush(connection) -> None:
     """Flush event in database"""
@@ -35,8 +36,6 @@ def flush(connection) -> None:
         deleteEventTimeLineInBase(connection, event_name)
 
 
-# YOUR EVENT
-# ----------------
 def reBuildEvent(
     connection: sqlite3.Connection,
     file: Any | None = None,
@@ -75,15 +74,32 @@ def reBuildEvent(
     None
     """
 
-    # DO NOT MODIFY
+    # Parameters
     # ----------------
-    # (unless you know what you are doing)
+    cm_over_px = get_scale_cm_over_px(animalType)  # px <-> cm conversion
+
+    # Events creation
+    # ----------------
     if pool is None:
         pool = AnimalPool()
         pool.loadAnimals(connection)
-        pool.loadDetection(start=tmin, end=tmax)
+        pool.loadDetection(start=tmin, end=tmax, lightLoad=True)
+    # lightLoad=True allows to load only massX and massY of detections
+    # it is faster and uses less memory. Set it to False if you need any of:
+    # massZ, frontX, frontY, frontZ, backX, backY, backZ
+    # or rearing, lookUp, lookDown variables
 
     for animal in pool.animalDictionary.values():
+
+        # prepare a dictionary to store the result of your event detection
+        # keys of this dictionary should be frame numbers
+        # values should be True (do not add False values to the dictionary)
+        result = {}
+
+        # USAGE EXAMPLE:
+        # > result[f] = True
+        # this means your event occur at frame "f"
+        # NEVER add a "False" value to the dictionary
 
         # create a new event timeline for each animal
         # it will be filled with the result of your event detection
@@ -100,25 +116,16 @@ def reBuildEvent(
             maxFrame=tmax,
         )
 
-        # prepare a dictionary to store the result of your event detection
-        # keys of this dictionary should be frame numbers
-        # values should be True (do not add False values to the dictionary)
-        result = {}
+        # ================ EXAMPLES ================
 
-        # example of use:
-        # result[f] = True
-        # this means your event occur at frame "f"
-        # NEVER add a "False" value to the dictionary
-
+        # example of how to get all frames and detections of the animal
         sorted_detections = sorted(animal.detectionDictionary.items())
 
-        # ================ YOUR CODE HERE ================
-
         # example of how to get all frames where the animal was detected
-        animal_frames = np.array([frame for frame, _ in sorted_detections])
+        animal_frames = [frame for frame, _ in sorted_detections]
 
         # examples of how to skip animals without detections
-        if animal_frames.size == 0:
+        if len(animal_frames) == 0:
             continue
 
         # example of how to get massX position of the animal detections
@@ -126,9 +133,11 @@ def reBuildEvent(
         massX = np.array(
             [detection.massX for _, detection in sorted_detections]
         )
+        # NOTE: if you want to access to head or tail points, you need to set
+        # lightLoad=False when loading detections in the pool (see above)
 
         # example of how to compute speed along X axis
-        frame_gaps = np.diff(animal_frames)
+        frame_gaps = np.diff(np.array(animal_frames))
         vx = np.zeros_like(massX)
         vx[1:] = np.diff(massX) / frame_gaps
 
@@ -143,15 +152,15 @@ def reBuildEvent(
 
         result[42] = True  # example of result dictionary
 
-        # ================ END OF YOUR CODE ================
+        # ================ END OF EXAMPLES ================
 
-        # DO NOT MODIFY
+        # Must be kept
         # ----------------
         # store your result in the event timeline and save it in database
         your_event_TimeLine.reBuildWithDictionary(result)
         your_event_TimeLine.endRebuildEventTimeLine(connection)
 
-    # DO NOT MODIFY
+    # Must be kept
     # ----------------
     # log process for debugging and record keeping
     t = TaskLogger(connection)
