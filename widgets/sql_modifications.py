@@ -51,9 +51,7 @@ class UpdateDatabaseInfo(QDialog):
 
     def _init_ui(self):
 
-        #######################################
-        #   Columns buttons   #
-        #######################################
+        # ================ BUTTONS ================
         layout = QVBoxLayout()
         btn_layout = QHBoxLayout()
 
@@ -77,9 +75,7 @@ class UpdateDatabaseInfo(QDialog):
         btn_layout.addStretch(1)
         layout.addLayout(btn_layout)
 
-        #######################################
-        #   Table   #
-        #######################################
+        # ================ TABLE ================
         self.table = QTableWidget()
         self.table.setMinimumSize(800, 400)
         self.table.cellChanged.connect(self.on_cell_changed)
@@ -250,9 +246,8 @@ class UpdateDatabaseInfo(QDialog):
             db_columns = set([row[1] for row in c.fetchall()])
             df_columns = list(self.df.columns)
 
-            #######################################
-            #   Remove exceeding columns   #
-            #######################################
+            # Remove exceeding columns
+            # ----------------
 
             exceeding_cols = [
                 col
@@ -263,9 +258,9 @@ class UpdateDatabaseInfo(QDialog):
                 alter_sql = f"ALTER TABLE ANIMAL DROP COLUMN {col}"
                 c.execute(alter_sql)
 
-            #######################################
-            #   Add missing columns   #
-            #######################################
+            # Add missing columns
+            # ----------------
+
             missing_cols = [
                 col
                 for col in df_columns
@@ -282,9 +277,9 @@ class UpdateDatabaseInfo(QDialog):
                 alter_sql = f"ALTER TABLE ANIMAL ADD COLUMN {col} {sql_type}"
                 c.execute(alter_sql)
 
-            #######################################
-            #   Update values in all columns   #
-            #######################################
+            # Update values in all columns
+            # ----------------
+
             c.execute("PRAGMA table_info(ANIMAL)")
             db_columns = set([row[1] for row in c.fetchall()])
             update_cols = [

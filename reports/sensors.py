@@ -34,9 +34,7 @@ def generic_reports(
         )
         return None
 
-    #######################################
-    #   Constants & Parameters   #
-    #######################################
+    # ================ PARAMETERS ================
 
     X_axis = settings.report_x_axis
 
@@ -74,9 +72,7 @@ def generic_reports(
         "?",
     ]
 
-    #######################################
-    #   Titles   #
-    #######################################
+    # ================ TITLES ================
 
     report_manager.add_title(
         name=f"Sensors data visualization",
@@ -99,9 +95,7 @@ def generic_reports(
         content="?",
     )
 
-    #######################################
-    #   Sensors overview card   #
-    #######################################
+    # ================ SENSORS OVERVIEW CARD ================
 
     card = """<div style="flex: 0 0 320px; min-width: 220px;
     max-width: 400px;"> <div style="margin:0; padding:0;">
@@ -129,9 +123,7 @@ def generic_reports(
         content=card,
     )
 
-    #######################################
-    #   Sensors plots   #
-    #######################################
+    # ================ SENSORS PLOTS ================
 
     for sensor, sensor_label, unit in zip(sensors, sensors_labels, units):
 
@@ -189,7 +181,5 @@ def generic_reports(
                 """,
             )
 
-    #######################################
-    #   TABLE   #
-    #######################################
+    # ================ TABLE ================
     report_manager.add_table_headers(name="complete table", df=df)

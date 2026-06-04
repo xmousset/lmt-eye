@@ -33,17 +33,13 @@ def generic_reports(
 
     df["MIN_FROM_START"] = df["FRAME"] / settings.fps / 60
 
-    #######################################
-    #   Constants & Parameters   #
-    #######################################
+    # ================ PARAMETERS ================
 
     comparator = settings.report_color
 
     plot_parameters = settings.get_plot_parameters(df)
 
-    #######################################
-    #   Titles   #
-    #######################################
+    # ================ TITLES ================
 
     report_manager.add_title(
         name=f"Analysis of animal trajectory",
@@ -71,9 +67,7 @@ def generic_reports(
         ),
     )
 
-    #######################################
-    #   Density contour   #
-    #######################################
+    # ================ DENSITY CONTOUR ================
 
     fig = px.density_contour(
         df,
@@ -101,9 +95,7 @@ def generic_reports(
         top_note=report_description,
     )
 
-    #######################################
-    #   Density contour heat map   #
-    #######################################
+    # ================ DENSITY CONTOUR HEAT MAP ================
     figs = []
 
     for i, c in enumerate(plot_parameters["category_orders"][comparator]):
@@ -149,9 +141,7 @@ def generic_reports(
         max_fig_in_row=2,
     )
 
-    #######################################
-    #   Trajectory line plot   #
-    #######################################
+    # ================ TRAJECTORY LINE PLOT ================
 
     figs = []
     for c in plot_parameters["category_orders"][comparator]:
@@ -194,9 +184,7 @@ def generic_reports(
         max_fig_in_row=2,
     )
 
-    #######################################
-    #   TABLE   #
-    #######################################
+    # ================ TABLE ================
     text = (
         "The complete table data used to create the above graphs can be "
         "generated using the code below. The application use the "
