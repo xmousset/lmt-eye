@@ -72,8 +72,7 @@ class DataframeConstructor:
             last_timestamp,
             bin_size=bin_window,
             bin_rounding=bin_rounding,
-            start=processing_limits[0],
-            end=processing_limits[1],
+            limits=processing_limits,
             fps=fps,
             utc_offset=utc_offset,
         )
@@ -128,7 +127,7 @@ class DataframeConstructor:
                 timestamp for data processing. If None, it will end at the last
                 frame.
         """
-        self.binner.set_parameters(start=start, end=end)
+        self.binner.set_parameters(start_limit=start, end_limit=end)
 
     def get_processing_limits(
         self, unit: Literal["FRAME", "TIME"] = "FRAME"
@@ -140,10 +139,10 @@ class DataframeConstructor:
             It is either in frames (int) or timestamps (pd.Timestamp).
         """
         if unit == "FRAME":
-            return (self.binner.start_frame, self.binner.end_frame)
+            return self.binner.limits
         elif unit == "TIME":
-            start_time = self.binner.frame_to_time(self.binner.start_frame)
-            end_time = self.binner.frame_to_time(self.binner.end_frame)
+            start_time = self.binner.frame_to_time(self.binner.limits[0])
+            end_time = self.binner.frame_to_time(self.binner.limits[1])
             return (start_time, end_time)
         else:
             raise ValueError("Invalid unit. Choose 'FRAME' or 'TIME'.")
@@ -174,7 +173,7 @@ class DataframeConstructor:
         """
 
         if bin_iterator is None:
-            bin_iterator = [(self.binner.start_frame, self.binner.end_frame)]
+            bin_iterator = [self.binner.limits]
 
         event_timeline = EventTimeLine(
             self.animal_pool.conn,
