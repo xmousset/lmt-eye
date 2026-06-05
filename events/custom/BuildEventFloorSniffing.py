@@ -41,7 +41,7 @@ def reBuildEvent(
 
     # Parameters
     # ----------------
-    body_slope_limits = (-25, -15)  # px
+    BODY_SLOPE_LIMITS = (-25, -15)  # px
 
     pool = AnimalPool()
     pool.loadAnimals(connection)
@@ -72,8 +72,8 @@ def reBuildEvent(
                 continue
 
             if (
-                body_slope >= body_slope_limits[0]
-                and body_slope <= body_slope_limits[1]
+                body_slope >= BODY_SLOPE_LIMITS[0]
+                and body_slope <= BODY_SLOPE_LIMITS[1]
             ):
                 result[f] = True
 
@@ -89,7 +89,7 @@ def reBuildEvent(
             f.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
         else:
             f.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+    print(f"Event rebuilding finished: '{', '.join(EVENTS_NAME)}'")
 
 
 # Do not modify

@@ -71,7 +71,7 @@ def reBuildEvent(
 
     # Parameters
     # ----------------
-    cm_over_px = get_scale_cm_over_px(animalType)  # px <-> cm conversion
+    CM_OVER_PX = get_scale_cm_over_px(animalType)  # px <-> cm conversion
 
     if pool is None:
         pool = AnimalPool()
@@ -159,10 +159,10 @@ def reBuildEvent(
     t = TaskLogger(connection)
     for event_name in EVENTS_NAME:
         if tmin is None or tmax is None:
-            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
         else:
-            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
 
 
 # Do not modify

@@ -36,10 +36,10 @@ def reBuildEvent(
 
     # Parameters
     # ----------------
-    mass_z_threshold = 128  # minimum massZ to be on house
-    head_z_threshold = 30  # minimum frontZ to be on house
-    min_event_length = 5  # minimum frames for event
-    merging_gap = 30  # merge events that are separated by 30 frames or less
+    MASS_Z_THRESHOLD = 128  # minimum massZ to be on house
+    HEAD_Z_THRESHOLD = 30  # minimum frontZ to be on house
+    MIN_EVENT_LENGTH = 5  # minimum frames for event
+    MERGING_GAP = 30  # merge events that are separated by 30 frames or less
 
     # Events creation
     # ----------------
@@ -79,16 +79,16 @@ def reBuildEvent(
                 continue
 
             # Check height thresholds
-            mass_ok = detect.massZ > mass_z_threshold
-            head_ok = detect.frontZ > 0 and detect.frontZ > head_z_threshold
+            mass_ok = detect.massZ > MASS_Z_THRESHOLD
+            head_ok = detect.frontZ > 0 and detect.frontZ > HEAD_Z_THRESHOLD
 
             # Mark as onHouse if both conditions met
             if mass_ok and head_ok:
                 result[f] = True
 
         onHouse_TL.reBuildWithDictionary(result)
-        onHouse_TL.removeEventsBelowLength(min_event_length)
-        onHouse_TL.mergeCloseEvents(merging_gap)
+        onHouse_TL.removeEventsBelowLength(MIN_EVENT_LENGTH)
+        onHouse_TL.mergeCloseEvents(MERGING_GAP)
         onHouse_TL.endRebuildEventTimeLine(connection)
 
     # Do not modify
@@ -97,10 +97,10 @@ def reBuildEvent(
     t = TaskLogger(connection)
     for event_name in EVENTS_NAME:
         if tmin is None or tmax is None:
-            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
         else:
-            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
 
 
 # Do not modify

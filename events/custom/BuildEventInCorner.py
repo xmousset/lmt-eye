@@ -45,18 +45,18 @@ def reBuildEvent(
 
     # Parameters
     # ----------------
-    cm_over_px = get_scale_cm_over_px(animalType)
+    CM_OVER_PX = get_scale_cm_over_px(animalType)
 
-    corners_coord = {
+    CORNERS_COORD = {
         "NW": (114, 63),
         "NE": (398, 63),
         "SE": (398, 353),
         "SW": (114, 353),
     }  # in px
 
-    radius = 5 / cm_over_px  # 5 cm radius around the corner
-    min_duration_in_corner = 6 * oneSecond  # minimum duration for valid event
-    merging_gap = 3  # merge events that are separated by 3 frames or less
+    RADIUS = 5 / CM_OVER_PX  # 5 cm radius around the corner
+    MIN_DURATION_IN_CORNER = 6 * oneSecond  # minimum duration for valid event
+    MERGING_GAP = 3  # merge events that are separated by 3 frames or less
 
     # Events creation
     # ----------------
@@ -88,13 +88,13 @@ def reBuildEvent(
             for k in ["NW", "NE", "SW", "SE"]:
                 distanceToEventLocation = animal.getDistanceToPoint(
                     f,
-                    corners_coord[k][0],
-                    corners_coord[k][1],
+                    CORNERS_COORD[k][0],
+                    CORNERS_COORD[k][1],
                 )
                 if distanceToEventLocation == None:
                     print("Distance cannot be computed.")
                     break
-                if distanceToEventLocation <= radius:
+                if distanceToEventLocation <= RADIUS:
                     result_corner[k][f] = True
                     break
 
@@ -102,8 +102,8 @@ def reBuildEvent(
         # ----------------
         for k in ["NW", "NE", "SW", "SE"]:
             cornerTimeLine[k].reBuildWithDictionary(result_corner[k])
-            cornerTimeLine[k].removeEventsBelowLength(min_duration_in_corner)
-            cornerTimeLine[k].mergeCloseEvents(merging_gap)
+            cornerTimeLine[k].removeEventsBelowLength(MIN_DURATION_IN_CORNER)
+            cornerTimeLine[k].mergeCloseEvents(MERGING_GAP)
             cornerTimeLine[k].endRebuildEventTimeLine(connection)
 
     # Must be kept
@@ -115,7 +115,7 @@ def reBuildEvent(
             f.addLog(f"Build Event {event_name} (tmin or tmax is None)")
         else:
             f.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+    print(f"Event rebuilding finished: '{', '.join(EVENTS_NAME)}'")
 
 
 # DO NOT MODIFY

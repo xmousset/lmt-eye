@@ -43,12 +43,12 @@ def reBuildEvent(
 
     # Parameters
     # ----------------
-    corner_position = (100, 350)  # house corner position
-    corner_distance_in = 200  # distance to be in house corner
-    corner_distance_on_min = 25  # minimum distance to be on house
-    corner_distance_on_max = 100  # maximum distance to be on house
-    head_height_threshold = 130  # massZ threshold to be on top of house
-    merging_gap = 30  # merge events that are separated by 30 frames or less
+    CORNER_POSITION = (100, 350)  # house corner position
+    CORNER_DISTANCE_IN = 200  # distance to be in house corner
+    CORNER_DISTANCE_ON_MIN = 25  # minimum distance to be on house
+    CORNER_DISTANCE_ON_MAX = 100  # maximum distance to be on house
+    HEAD_HEIGHT_THRESHOLD = 130  # massZ threshold to be on top of house
+    MERGING_GAP = 30  # merge events that are separated by 30 frames or less
 
     # Events creation
     # ----------------
@@ -79,23 +79,23 @@ def reBuildEvent(
 
         for f, detect in sorted_detections:
             dist = detect.getDistanceToPoint(
-                xPoint=corner_position[0], yPoint=corner_position[1]
+                xPoint=CORNER_POSITION[0], yPoint=CORNER_POSITION[1]
             )
             if dist is None:  # if distance cannot be calculated, skip
                 continue
 
-            if dist < corner_distance_in:
+            if dist < CORNER_DISTANCE_IN:
                 result_in_house_corner[f] = True
 
-            if corner_distance_on_min < dist < corner_distance_on_max:
-                if detect.massZ > head_height_threshold:
+            if CORNER_DISTANCE_ON_MIN < dist < CORNER_DISTANCE_ON_MAX:
+                if detect.massZ > HEAD_HEIGHT_THRESHOLD:
                     result_over_house[f] = True
 
         houseCornerTimeLine.reBuildWithDictionary(result_in_house_corner)
         houseCornerTimeLine.endRebuildEventTimeLine(connection)
 
         overHouseTimeLine.reBuildWithDictionary(result_over_house)
-        overHouseTimeLine.mergeCloseEvents(merging_gap)
+        overHouseTimeLine.mergeCloseEvents(MERGING_GAP)
         overHouseTimeLine.endRebuildEventTimeLine(connection)
 
     # Do not modify
@@ -104,10 +104,10 @@ def reBuildEvent(
     t = TaskLogger(connection)
     for event_name in EVENTS_NAME:
         if tmin is None or tmax is None:
-            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
         else:
-            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
 
 
 # Do not modify

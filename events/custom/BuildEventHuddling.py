@@ -1,68 +1,113 @@
-'''
-Created on 6 sept. 2017
-
+"""
 @author: Fab
-'''
+
+Huddling Event Detection
+Created on 6 sept. 2017
+"""
+
 import sqlite3
-from time import *
-from lmtanalysis.Chronometer import Chronometer
-from lmtanalysis.Animal import *
-from lmtanalysis.Detection import *
-from lmtanalysis.Measure import *
-import matplotlib.pyplot as plt
 import numpy as np
-from lmtanalysis.Event import *
-from lmtanalysis.Measure import *
+from typing import Any
+
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
+from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-def flush( connection ):
-    ''' flush event in database '''
-    deleteEventTimeLineInBase(connection, "Huddling" )
+# Event info
+# ----------------
 
-def reBuildEvent( connection, file, tmin=None, tmax=None, pool = None , animalType = None, showGraph = False ): 
-    
-    ''' use the pool provided or create it'''
-    if ( pool == None ):
-        pool = AnimalPool( )
-        pool.loadAnimals( connection )
-        #pool.loadDetection( start = tmin, end = tmax )
-    
-    
-    for idAnimalA in pool.animalDictionary:
-        
-        threshold = 0.5
-        animal = pool.animalDictionary[idAnimalA]
-        print("Computing huddling for animal " , animal )
-                
-        huddlingTimeLine = EventTimeLine( connection, "Huddling", idAnimalA, minFrame=tmin, maxFrame=tmax, loadEvent=False )
+EVENTS_NAME: list[str] = ["Huddling"]
 
+EVENTS_DESCRIPTION: str = """
+    Detects huddling behavior in animals based on body shape roundness.
+    An animal is considered huddling when its body roundness is below a certain threshold,
+    indicating a curved or huddled posture rather than an extended position.
+"""
+
+
+# Rebuild function
+# ----------------
+def reBuildEvent(
+    connection: sqlite3.Connection,
+    file: Any | None = None,
+    tmin: int | None = None,
+    tmax: int | None = None,
+    pool: AnimalPool | None = None,
+    animalType: AnimalType = AnimalType.MOUSE,
+) -> None:
+
+    # Parameters
+    # ----------------
+    ROUNDNESS_THRESHOLD = 1.85  # threshold for detecting huddled posture
+
+    if pool is None:
+        pool = AnimalPool()
+        pool.loadAnimals(connection)
+        pool.loadDetection(start=tmin, end=tmax, lightLoad=True)
+
+    if tmin is None:
+        tmin = 1
+    if tmax is None:
+        tmax = pool.getMaxDetectionT()
+
+    # Events creation for each animal
+    # ----------------
+    for animal in pool.animalDictionary.values():
         result = {}
-        
-        for t in range( tmin, tmax+1 ):
-            if t%10000 == 0:
-                print ( "current t", t )
-                            
-            mask = animal.getBinaryDetectionMask( t )
-            if mask == None:
-                continue
-            roundness = mask.getRoundness()
-            if roundness == None:
-                continue
-            #print ( idAnimalA , t , roundness )
-            #if roundness > 1-threshold and roundness < 1+threshold:
-            if roundness < 1.85: # and roundness > 1:
-                result[t] = True  
-            
-        huddlingTimeLine.reBuildWithDictionary( result )
-        huddlingTimeLine.endRebuildEventTimeLine(connection)
-    
-        
-    # log process
-    
-    t = TaskLogger( connection )
-    t.addLog( "Build Event Huddling" , tmin=tmin, tmax=tmax )
+        huddling_TL = EventTimeLine(
+            conn=None,
+            eventName=EVENTS_NAME[0],
+            idA=animal.baseId,
+            loadEvent=False,
+            minFrame=tmin,
+            maxFrame=tmax,
+        )
 
-               
-    print( "Rebuild event finished." )
-        
-    
+        # ================ HUDDLING DETECTION ================
+
+        n_hour = 0
+        print(f"Processing Huddling frames for animal {animal.baseId}...")
+        for frame_num in range(tmin, tmax + 1):
+            if frame_num % oneHour == 0:
+                n_hour += 1
+                print(f"Processing Huddling, {n_hour} hour(s) processed")
+
+            # Get the binary detection mask for this frame
+            mask = animal.getBinaryDetectionMask(frame_num)
+            if mask is None:
+                continue
+
+            # Get the roundness of the mask (indicator of huddled posture)
+            roundness = mask.getRoundness()
+            if roundness is None:
+                continue
+
+            # If roundness is below threshold, animal is huddling
+            if roundness < ROUNDNESS_THRESHOLD:
+                result[frame_num] = True
+
+        # ================ END OF DETECTION ================
+
+        # store your result in the event timeline and save it in database
+        huddling_TL.reBuildWithDictionary(result)
+        huddling_TL.endRebuildEventTimeLine(connection)
+
+    # Do not modify
+    # ----------------
+    # log process for debugging and record keeping
+    t = TaskLogger(connection)
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
+        else:
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
+
+
+# Do not modify
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)

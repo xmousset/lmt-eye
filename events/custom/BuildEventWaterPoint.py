@@ -43,11 +43,11 @@ def reBuildEvent(
 
     # Parameters
     # ----------------
-    cm_over_px = get_scale_cm_over_px(animalType)
-    water_point_position = (398, 353)  # water source position
-    water_zone_distance = 10 / cm_over_px  # zone around water: 10 cm
-    water_stop_distance = 5 / cm_over_px  # tight zone for drinking: 5 cm
-    water_stop_min_duration = 2 * oneSecond  # minimum duration for drinking
+    CM_OVER_PX = get_scale_cm_over_px(animalType)
+    WATER_POINT_POSITION = (398, 353)  # water source position
+    WATER_ZONE_DISTANCE = 10 / CM_OVER_PX  # zone around water: 10 cm
+    WATER_STOP_DISTANCE = 5 / CM_OVER_PX  # tight zone for drinking: 5 cm
+    WATER_STOP_MIN_DURATION = 2 * oneSecond  # minimum duration for drinking
 
     # Events creation
     # ----------------
@@ -86,18 +86,18 @@ def reBuildEvent(
 
         for f, detect in sorted_detections:
             dist = detect.getDistanceToPoint(
-                xPoint=water_point_position[0], yPoint=water_point_position[1]
+                xPoint=WATER_POINT_POSITION[0], yPoint=WATER_POINT_POSITION[1]
             )
 
             if dist is None:
                 continue
 
             # Check if the animal is entering the zone around the water point
-            if dist <= water_zone_distance:
+            if dist <= WATER_ZONE_DISTANCE:
                 resultWaterZone[f] = True
 
             # Check if the animal is drinking (in tight zone and stopped)
-            if dist <= water_stop_distance:
+            if dist <= WATER_STOP_DISTANCE:
                 if f in stopTimeLineDictionary.keys():
                     resultWaterStop[f] = True
 
@@ -105,7 +105,7 @@ def reBuildEvent(
         water_zone_TL.endRebuildEventTimeLine(connection)
 
         water_stop_TL.reBuildWithDictionary(resultWaterStop)
-        water_stop_TL.removeEventsBelowLength(water_stop_min_duration)
+        water_stop_TL.removeEventsBelowLength(WATER_STOP_MIN_DURATION)
         water_stop_TL.endRebuildEventTimeLine(connection)
 
     # Do not modify
@@ -114,10 +114,10 @@ def reBuildEvent(
     t = TaskLogger(connection)
     for event_name in EVENTS_NAME:
         if tmin is None or tmax is None:
-            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
         else:
-            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
 
 
 # Do not modify

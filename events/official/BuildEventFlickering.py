@@ -67,11 +67,11 @@ def reBuildEvent(
 
     # Parameters
     # ----------------
-    cm_over_px = get_scale_cm_over_px(animalType)
+    CM_OVER_PX = get_scale_cm_over_px(animalType)
 
-    min_speed_2 = (1.6 / cm_over_px) ** 2
+    min_speed_2 = (1.6 / CM_OVER_PX) ** 2
     # minimum value for the max_speed of the 'window' interval in cm/frame
-    speed_displacement_diff_2 = (0.7 / cm_over_px) ** 2
+    speed_displacement_diff_2 = (0.7 / CM_OVER_PX) ** 2
     # minimum value for the difference between mean_speed and displacement
     # of the 'window' interval in cm/frame
 
@@ -181,10 +181,10 @@ def reBuildEvent(
     t = TaskLogger(connection)
     for event_name in EVENTS_NAME:
         if tmin is None or tmax is None:
-            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
         else:
-            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
 
 
 # Do not modify
