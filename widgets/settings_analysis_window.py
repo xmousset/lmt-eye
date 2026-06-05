@@ -59,6 +59,7 @@ class AnalysisSettingsWindow(QDialog):
         self.setWindowTitle("LMT-EYE - Analysis Settings")
 
         self.settings = self.load_default_settings()
+        self.rebuild_only = False
         self._init_ui()
 
     def _init_ui(self):
@@ -636,12 +637,24 @@ class AnalysisSettingsWindow(QDialog):
         cancel_btn.setStyleSheet(btn_style)
         cancel_btn.clicked.connect(self.on_reject)
 
+        # rebuild only
+        btn_style = get_btn_style(size=13, bold=False)
+        rebuild_btn = QPushButton("Rebuild only")
+        rebuild_btn.setToolTip(
+            "Force the rebuild of all events without launching the analysis.\n"
+            "Always consider the 'Rebuild' tick box as ticked."
+        )
+        rebuild_btn.setFixedWidth(100)
+        rebuild_btn.setStyleSheet(btn_style)
+        rebuild_btn.clicked.connect(self.on_rebuild_only)
+
         # row layout
         validation_row = QHBoxLayout()
-        validation_row.addStretch(1)
+        validation_row.addStretch(2)
         validation_row.addWidget(ok_btn)
         validation_row.addWidget(cancel_btn)
         validation_row.addStretch(1)
+        validation_row.addWidget(rebuild_btn)
 
         form.addRow(validation_row)
 
@@ -1078,6 +1091,18 @@ class AnalysisSettingsWindow(QDialog):
     def on_reject(self):
         """Reject dialog."""
         self.reject()
+
+    def on_rebuild_only(self):
+        """Update settings and accept dialog with a specific code for rebuild
+        only."""
+        self._update_settings_from_ui()
+        if not self._check_processing_limits_valid():
+            return
+        if not self._check_night_times_valid():
+            return
+        self.settings.rebuild_events = True
+        self.rebuild_only = True
+        self.accept()
 
     def Qhline(self):
         """Utility function to create a horizontal line separator."""

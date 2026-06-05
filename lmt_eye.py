@@ -407,6 +407,7 @@ class DatabaseAnalysisWidget(QWidget):
         dlg = AnalysisSettingsWindow(self)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             settings = dlg.settings
+            rebuild_only = dlg.rebuild_only
         else:
             print("Process cancelled.")
             return
@@ -417,14 +418,17 @@ class DatabaseAnalysisWidget(QWidget):
             self, database_name=self.database_path.stem
         )
 
-        worker = AnalysisWorker(analyzer)
+        worker = AnalysisWorker(analyzer, rebuild_only=rebuild_only)
         worker.signals.rebuild_progress.connect(
             progress_bar.set_rebuild_progress
         )
         worker.signals.analyse_progress.connect(
             progress_bar.set_analyse_progress
         )
-        worker.signals.analyzer.connect(self.handle_open_analysis)
+        if rebuild_only:
+            worker.signals.analyzer.connect(self.rebuild_only_finished)
+        else:
+            worker.signals.analyzer.connect(self.handle_open_analysis)
         worker.signals.finished.connect(progress_bar.progression_finished)
 
         progress_bar.show()
@@ -461,7 +465,30 @@ class DatabaseAnalysisWidget(QWidget):
             if dlg.exec():
                 analyzer.open_results()
         else:
-            QMessageBox.critical(self, "Error", "Analysis failed.")
+            QMessageBox.critical(self, "Processing", "Analysis failed.")
+
+    def rebuild_only_finished(self, analyzer: DatabaseAnalyzer | None):
+        """Inform the user that the database has been rebuilt.
+        Automatically close the window after 5 minutes if the user does not
+        answer."""
+        if analyzer is not None:
+
+            if analyzer.database_path is None:
+                print("Error: Analyzer has no database path.")
+                return
+
+            text = (
+                "LMT-EYE has finished to rebuild the following database:\n"
+                f"{analyzer.database_path.stem}"
+            )
+
+            QMessageBox.information(
+                self,
+                "Rebuild only",
+                text,
+            )
+        else:
+            QMessageBox.critical(self, "Rebuild only", "Rebuild failed.")
 
 
 class AnalysisWorkerSignals(QObject):
@@ -476,9 +503,14 @@ class AnalysisWorkerSignals(QObject):
 
 
 class AnalysisWorker(QRunnable):
-    def __init__(self, data_analyzer: DatabaseAnalyzer):
+    def __init__(
+        self,
+        data_analyzer: DatabaseAnalyzer,
+        rebuild_only: bool = False,
+    ):
         super().__init__()
         self.data_analyzer = data_analyzer
+        self.rebuild_only = rebuild_only
         self.signals = AnalysisWorkerSignals()
 
     @pyqtSlot()
@@ -487,9 +519,10 @@ class AnalysisWorker(QRunnable):
             self.data_analyzer.rebuild_database(
                 progress_callback=self.signals.rebuild_progress.emit
             )
-            self.data_analyzer.run_analysis(
-                progress_callback=self.signals.analyse_progress.emit
-            )
+            if not self.rebuild_only:
+                self.data_analyzer.run_analysis(
+                    progress_callback=self.signals.analyse_progress.emit
+                )
 
             self.signals.finished.emit(True)
             self.signals.analyzer.emit(self.data_analyzer)
