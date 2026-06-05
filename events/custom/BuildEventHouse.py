@@ -1,106 +1,118 @@
-'''
+"""
 Created on 6 sept. 2017
 
 @author: Fab
-'''
+@modified by: xmousset
+"""
+
 import sqlite3
-from time import *
-from lmtanalysis.Chronometer import Chronometer
-from lmtanalysis.Animal import *
-from lmtanalysis.Detection import *
-from lmtanalysis.Measure import *
 import numpy as np
-from lmtanalysis.Event import *
-from lmtanalysis.Measure import *
-#from affine import Affine
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-from lmtanalysis.EventTimeLineCache import EventTimeLineCached
-from lmtanalysis.Parameters import getAnimalTypeParameters
+from typing import Any
+
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Parameters import get_scale_cm_over_px
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.EventTimeLineCache import EventTimeLineCached
+from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
+from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-def flush( connection ):
-    ''' flush event in database '''
-    deleteEventTimeLineInBase(connection, "in house corner" )
-    deleteEventTimeLineInBase(connection, "over house" )
+# EVENT INFO
+# ----------------
 
+EVENTS_NAME: list[str] = ["in house corner", "over house"]
 
-def reBuildEvent( connection, file, tmin=None, tmax=None, pool = None, animalType=None ): 
+EVENTS_DESCRIPTION: str = """
+    In house corner: The animal is located in the corner of the house. 
+    Detected when the animal is within 200 pixels from the corner position (100, 350).
     
-    parameters = getAnimalTypeParameters( animalType )
-    
-    ''' use the pool provided or create it'''
-    if ( pool == None ):
-        pool = AnimalPool( )
-        pool.loadAnimals( connection )
-        pool.loadDetection( start = tmin, end = tmax, lightLoad=False )
-    
+    Over house: The animal is on top of the house.
+    Detected when the animal is 25-100 pixels from the corner and its head (massZ) is above 130.
+"""
 
-    for animal in pool.animalDictionary.keys():
-        print(pool.animalDictionary[animal])
-        
-        eventName1 = "in house corner"
-        eventName2 = "over house"        
-                
-        houseCornerTimeLine = EventTimeLine( None, eventName1 , animal , None , None , None , loadEvent=False )
-        overHouseTimeLine = EventTimeLine( None, eventName2 , animal , None , None , None , loadEvent=False )
-                        
-        resultHouseCorner={}
-        resultOverHouse={}
-        
-        animalA = pool.animalDictionary[animal]
-        #print ( animalA )
-        dicA = animalA.detectionDictionary
-        
-        '''        
-           if cornerNb==4:
-        corner=(100,-350)
-        distance = 200
 
-        animalsInCorner = []
-        
-        for animal in pool.getAnimalList():
-            d = animal.getDistanceToPoint( t , corner[0] , -corner[1] )        
-            if d!=None:
-                
-                
-                if d < distance: # distance to corner
-                    animalsInCorner.append( animal )
-                    #return animal
-        
-        return animalsInCorner
-        ''' 
-        
-        for t in dicA.keys():
-            dist = dicA[t].getDistanceToPoint( xPoint = 100, yPoint = 350)
-            if dist == None: # bottom left corner
+# Rebuild function
+# ----------------
+def reBuildEvent(
+    connection: sqlite3.Connection,
+    file=None,
+    tmin: int | None = None,
+    tmax: int | None = None,
+    pool: AnimalPool | None = None,
+    animalType=None,
+) -> None:
+
+    # Parameters
+    # ----------------
+    corner_position = (100, 350)  # house corner position
+    corner_distance_in = 200  # distance to be in house corner
+    corner_distance_on_min = 25  # minimum distance to be on house
+    corner_distance_on_max = 100  # maximum distance to be on house
+    head_height_threshold = 130  # massZ threshold to be on top of house
+    merging_gap = 30  # merge events that are separated by 30 frames or less
+
+    # Events creation
+    # ----------------
+    if pool is None:
+        pool = AnimalPool()
+        pool.loadAnimals(connection)
+        pool.loadDetection(start=tmin, end=tmax, lightLoad=False)
+
+    for animal in pool.animalDictionary.values():
+
+        houseCornerTimeLine = EventTimeLine(
+            conn=None,
+            eventName=EVENTS_NAME[0],
+            idA=animal.baseId,
+            loadEvent=False,
+        )
+        overHouseTimeLine = EventTimeLine(
+            conn=None,
+            eventName=EVENTS_NAME[1],
+            idA=animal.baseId,
+            loadEvent=False,
+        )
+
+        result_in_house_corner = {}
+        result_over_house = {}
+
+        sorted_detections = sorted(animal.detectionDictionary.items())
+
+        for f, detect in sorted_detections:
+            dist = detect.getDistanceToPoint(
+                xPoint=corner_position[0], yPoint=corner_position[1]
+            )
+            if dist is None:  # if distance cannot be calculated, skip
                 continue
-            if dist < 200:
-                resultHouseCorner[t] = True
-            
-            if dist < 100 and dist> 25:
-                if dicA[t].massZ > 130:
-                    resultOverHouse[t] = True
-                        
-        houseCornerTimeLine.reBuildWithDictionary( resultHouseCorner )
-        houseCornerTimeLine.endRebuildEventTimeLine(connection)
-        
-        overHouseTimeLine.reBuildWithDictionary( resultOverHouse )
-        overHouseTimeLine.mergeCloseEvents( 30 )
-        overHouseTimeLine.endRebuildEventTimeLine(connection)
-    
-        
-    # log process
-    
-    t = TaskLogger( connection )
-    t.addLog( "Build Event House" , tmin=tmin, tmax=tmax )
 
-    print( "Rebuild event finished." )
-        
-        
-        
-        
-        
-        
-        
-    
+            if dist < corner_distance_in:
+                result_in_house_corner[f] = True
+
+            if corner_distance_on_min < dist < corner_distance_on_max:
+                if detect.massZ > head_height_threshold:
+                    result_over_house[f] = True
+
+        houseCornerTimeLine.reBuildWithDictionary(result_in_house_corner)
+        houseCornerTimeLine.endRebuildEventTimeLine(connection)
+
+        overHouseTimeLine.reBuildWithDictionary(result_over_house)
+        overHouseTimeLine.mergeCloseEvents(merging_gap)
+        overHouseTimeLine.endRebuildEventTimeLine(connection)
+
+    # Do not modify
+    # ----------------
+    # log process for debugging and record keeping
+    t = TaskLogger(connection)
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+        else:
+            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+
+
+# Do not modify
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)

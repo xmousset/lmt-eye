@@ -34,14 +34,6 @@ EVENTS_DESCRIPTION: str = """
 """
 
 
-# DO NOT MODIFY
-# ----------------
-def flush(connection) -> None:
-    """Flush event in database"""
-    for event_name in EVENTS_NAME:
-        deleteEventTimeLineInBase(connection, event_name)
-
-
 def reBuildEvent(
     connection: sqlite3.Connection,
     file: Any | None = None,
@@ -50,32 +42,6 @@ def reBuildEvent(
     pool: AnimalPool | None = None,
     animalType: AnimalType = AnimalType.MOUSE,
 ) -> None:
-    """
-    Rebuilds the appropriate event for all animals in the database.
-
-    Parameters
-    ----------
-    connection : sqlite3.Connection
-        The SQLite database connection.
-    file : Any or None, optional
-        The file path or object.
-        Can be used by EventTimeLineCached to cache event loading.
-        Default is None.
-    tmin : int or None, optional
-        Start time for detections (in frame). If None, it will load all
-        detections from the start.
-    tmax : int or None, optional
-        End time for detections (in frame). If None, it will load all
-        detections until the end.
-    pool : AnimalPool or None, optional
-        AnimalPool instance (create new one if None, using tmin and tmax).
-    animalType : AnimalType, optional
-        The appropriate animal type. Default is MOUSE.
-
-    Returns
-    -------
-    None
-    """
 
     # Parameters
     # ----------------
@@ -149,4 +115,12 @@ def reBuildEvent(
             f.addLog(f"Build Event {event_name} (tmin or tmax is None)")
         else:
             f.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: {EVENTS_NAME}")
+    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+
+
+# DO NOT MODIFY
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)

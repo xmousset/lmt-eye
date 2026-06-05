@@ -1,69 +1,100 @@
-'''
+"""
 Created on 6 sept. 2017
 
 @author: Fab
-'''
+@modified by: xmousset
+"""
+
 import sqlite3
-from time import *
-from lmtanalysis.Chronometer import Chronometer
-from lmtanalysis.Animal import *
-from lmtanalysis.Detection import *
-from lmtanalysis.Measure import *
 import numpy as np
-from lmtanalysis.Event import *
-from lmtanalysis.Measure import *
-#from affine import Affine
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
+from typing import Any
+
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Parameters import get_scale_cm_over_px
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.EventTimeLineCache import EventTimeLineCached
+from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
+from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-def flush( connection ):
-    ''' flush event in database '''
-    deleteEventTimeLineInBase(connection, "Floor sniffing" )
+# Event info
+# ----------------
+
+EVENTS_NAME: list[str] = ["Floor sniffing"]
+
+EVENTS_DESCRIPTION: str = """
+    The animal is sniffing the floor. This event is detected when the animal's body slope 
+    (frontZ - backZ) is between -25 and -15 (px), indicating the animal's head/front is lower 
+    than its tail/back, characteristic of a downward sniffing posture.
+"""
 
 
-def reBuildEvent( connection, tmin, tmax , pool = None, animalType = None ): 
-    '''
-    Event Floor sniffing:
-    - the animal is sniffing the floor
-    '''
-    
-    pool = AnimalPool( )
-    pool.loadAnimals( connection )
-    pool.loadDetection( start = tmin, end = tmax )
-    
-    for animal in pool.animalDictionary.keys():
-        print(pool.animalDictionary[animal])
-        
-        eventName = "Floor sniffing"
-        print ( "A sniffs the floor")        
-        print ( eventName )
-                
-        sniffFloorTimeLine = EventTimeLine( None, eventName , animal , None , None , None , loadEvent=False )
-                
-        result={}
-        
-        animalA = pool.animalDictionary[animal]
-        #print ( animalA )
-        dicA = animalA.detectionDictionary
-            
-        for t in dicA.keys():
-            if (animalA.getBodySlope(t) == None):
+# Rebuild function
+# ----------------
+def reBuildEvent(
+    connection: sqlite3.Connection,
+    file: Any | None = None,
+    tmin: int | None = None,
+    tmax: int | None = None,
+    pool: AnimalPool | None = None,
+    animalType: AnimalType = AnimalType.MOUSE,
+) -> None:
+
+    # Parameters
+    # ----------------
+    body_slope_limits = (-25, -15)  # px
+
+    pool = AnimalPool()
+    pool.loadAnimals(connection)
+    pool.loadDetection(start=tmin, end=tmax)
+
+    for animal in pool.animalDictionary.values():
+
+        sniffFloorTimeLine = EventTimeLine(
+            conn=None,
+            eventName=EVENTS_NAME[0],
+            idA=animal.baseId,
+            idB=None,
+            idC=None,
+            idD=None,
+            loadEvent=False,
+            minFrame=tmin,
+            maxFrame=tmax,
+        )
+
+        result = {}
+
+        sorted_detections = sorted(animal.detectionDictionary.items())
+
+        for f, detect in sorted_detections:
+            body_slope = detect.getBodySlope()
+
+            if body_slope == None:
                 continue
-            
-            if (animalA.getBodySlope(t) >= -25 and animalA.getBodySlope(t) <= -15):
-                #print("floor sniffing")
-                result[t] = True
-                
-        
-        sniffFloorTimeLine.reBuildWithDictionary( result )
-                
-        sniffFloorTimeLine.endRebuildEventTimeLine(connection)
-    
-        
-    # log process
-    
-    t = TaskLogger( connection )
-    t.addLog( "Build Event Floor sniffing" , tmin=tmin, tmax=tmax )
 
-    print( "Rebuild event finished." )
+            if (
+                body_slope >= body_slope_limits[0]
+                and body_slope <= body_slope_limits[1]
+            ):
+                result[f] = True
+
+        sniffFloorTimeLine.reBuildWithDictionary(result)
+        sniffFloorTimeLine.endRebuildEventTimeLine(connection)
+
+    # Do not modify
+    # ----------------
+    # log process for debugging and record keeping
+    f = TaskLogger(connection)
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            f.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+        else:
+            f.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+
+
+# Do not modify
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)

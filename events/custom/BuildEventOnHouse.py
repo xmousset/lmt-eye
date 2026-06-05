@@ -1,198 +1,111 @@
-'''
-Created on 6 sept. 2017
-
+"""
 @author: Fab
-'''
+"""
+
 import sqlite3
-from time import *
-from lmtanalysis.Chronometer import Chronometer
-from lmtanalysis.Animal import *
-from lmtanalysis.Detection import *
-from lmtanalysis.Measure import *
-import numpy as np
-from lmtanalysis.Event import *
-from lmtanalysis.Measure import *
-#from affine import Affine
-import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-import sys
-import matplotlib.pyplot as plt
-from lmtanalysis.FileUtil import getFilesToProcess
+from typing import Any
+
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.EventTimeLineCache import EventTimeLineCached
+from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
+from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-def flush( connection ):
-    ''' flush event in database '''
-    deleteEventTimeLineInBase(connection, "onHouse" )
+# EVENT INFO
+# ----------------
 
-def reBuildEvent( connection, file, tmin=None, tmax=None, pool = None, animalType = None, showGraph = False ): 
-    
-    ''' use the pool provided or create it'''
-    if ( pool == None ):
-        pool = AnimalPool( )
-        pool.loadAnimals( connection )
-        pool.loadDetection( start = tmin, end = tmax )
-    
-    '''
-    centerX = 512/2
-    centerY = 424/2
-    
-    if ( showGraph ):
-        plt.figure( 1 )
-    '''
-    
-    # find threshold
-    massZs = []
-    headZs = []
-    backZs = []
+EVENTS_NAME: list[str] = ["onHouse"]
 
-    '''
-    for animal in pool.animalDictionary.keys():
-        
-        animalA = pool.animalDictionary[animal]        
-        dicA = animalA.detectionDictionary
-        for t in dicA.keys():
-            
-            massZs.append( dicA[t].massZ )
-            
-            if dicA[t].frontZ > 0:
-                headZs.append( dicA[t].frontZ )
-            
-            if dicA[t].backZ > 0:
-                backZs.append( dicA[t].backZ )
-            
-    headZThreshold = np.percentile( headZs, 95 )
-    massZThreshold = np.percentile( massZs, 95 )
-    backZThreshold = np.percentile( backZs, 95 )
-    '''
-    headZThreshold = 50 -20
-    massZThreshold = 148 -20
-    backZThreshold = 30 -20 
-    eventName = "onHouse"
-    
-    '''
-    for animal in pool.animalDictionary.keys():
-        print(pool.animalDictionary[animal])
-        t = 335794
-        animalA = pool.animalDictionary[animal]        
-        dicA = animalA.detectionDictionary
-        print( "mass: " , dicA[t].massZ )
-        print( "head: " , dicA[t].frontZ )
-        print( "back: " , dicA[t].backZ )
-        
-    
-    quit()
-    '''
-    
-    #deleteEventTimeLineInBase(connection, "onHouse" )
-    
-    for animal in pool.animalDictionary.keys():
-        print(pool.animalDictionary[animal])
-               
-        print ( "X is on the house")        
-        print ( eventName )
-                
-        onHouseTimeLine = EventTimeLine( None, eventName , animal , None , None , None , loadEvent=False )
-        centerZoneTimeLineDic = EventTimeLine( connection, "Center Zone" , animal ).getDictionary()
-        
-        result={}
-        
-        animalA = pool.animalDictionary[animal]        
-        dicA = animalA.detectionDictionary
-        
-        for t in dicA.keys():
-            
-            if not t in centerZoneTimeLineDic:
-                # avoid rearing on wall
+EVENTS_DESCRIPTION: str = """
+    The animal is on top of the house. Detected when the animal is in the center zone
+    and meets height thresholds: massZ > 128, frontZ > 30. This indicates the animal has
+    climbed onto the house structure.
+"""
+
+
+# Rebuild function
+# ----------------
+def reBuildEvent(
+    connection: sqlite3.Connection,
+    file: Any | None = None,
+    tmin: int | None = None,
+    tmax: int | None = None,
+    pool: AnimalPool | None = None,
+    animalType: AnimalType = AnimalType.MOUSE,
+) -> None:
+
+    # Parameters
+    # ----------------
+    mass_z_threshold = 128  # minimum massZ to be on house
+    head_z_threshold = 30  # minimum frontZ to be on house
+    min_event_length = 5  # minimum frames for event
+    merging_gap = 30  # merge events that are separated by 30 frames or less
+
+    # Events creation
+    # ----------------
+    if pool is None:
+        pool = AnimalPool()
+        pool.loadAnimals(connection)
+        pool.loadDetection(start=tmin, end=tmax, lightLoad=False)
+    # lightLoad=False needed because we access frontZ and massZ
+
+    for animal in pool.animalDictionary.values():
+
+        onHouse_TL = EventTimeLine(
+            conn=None,
+            eventName=EVENTS_NAME[0],
+            idA=animal.baseId,
+            loadEvent=False,
+            minFrame=tmin,
+            maxFrame=tmax,
+        )
+
+        # Get the Center Zone event dictionary to filter detections
+        center_zone_TL = EventTimeLineCached(
+            connection=connection,
+            file=file,
+            eventName="Center Zone",
+            idA=animal.baseId,
+        )
+        center_zone_dictionary = center_zone_TL.getDictionary()
+
+        result = {}
+
+        sorted_detections = sorted(animal.detectionDictionary.items())
+
+        for f, detect in sorted_detections:
+            # Only consider frames in Center Zone
+            if f not in center_zone_dictionary:
                 continue
-            
-            massOk = False
-            headOk = False
-            backOk = False
-            
-            if dicA[t].massZ > massZThreshold:
-                massOk = True
-            
-            if dicA[t].frontZ > 0:
-                if dicA[t].frontZ > headZThreshold:
-                    headOk = True
-                    
-            if dicA[t].backZ > 0:
-                if dicA[t].backZ > backZThreshold:
-                    backOk = True
-                            
-            if massOk and headOk : # and backOk
-                result[t] = True
-                #print ( t , dicA[t].massZ , dicA[t].frontZ ) 
-        
-        
-        '''
-        print( np.percentile( allVals, 95 ) )
-        print( np.percentile( allVals, 99 ) )
 
-        plt.figure( 1 )
-        plt.hist( allVals , bins = 1000 )
-        plt.show()
-        '''
-                
-        
-        onHouseTimeLine.reBuildWithDictionary( result )  
-        onHouseTimeLine.removeEventsBelowLength( 5 )
-        onHouseTimeLine.mergeCloseEvents( 30 )          
-        onHouseTimeLine.endRebuildEventTimeLine(connection)
-        print( onHouseTimeLine )
-        #quit()
-        
-    '''
-    if ( showGraph ):
-        plt.show()
-    '''
-        
-    # log process
-    
-    t = TaskLogger( connection )
-    t.addLog( "Build Event Wall Jump" , tmin=tmin, tmax=tmax )
+            # Check height thresholds
+            mass_ok = detect.massZ > mass_z_threshold
+            head_ok = detect.frontZ > 0 and detect.frontZ > head_z_threshold
 
-     
-    print( "Rebuild event finished." )
-        
-if __name__ == '__main__':
-    
-    files = getFilesToProcess()
+            # Mark as onHouse if both conditions met
+            if mass_ok and head_ok:
+                result[f] = True
 
-    chronoFullBatch = Chronometer("Full batch" )
+        onHouse_TL.reBuildWithDictionary(result)
+        onHouse_TL.removeEventsBelowLength(min_event_length)
+        onHouse_TL.mergeCloseEvents(merging_gap)
+        onHouse_TL.endRebuildEventTimeLine(connection)
 
-    if ( files != None ):
+    # Do not modify
+    # ----------------
+    # log process for debugging and record keeping
+    t = TaskLogger(connection)
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
+        else:
+            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
 
-        for file in files:
-            
-            print ( "Processing file" , file )
-            connection = sqlite3.connect( file )
-            animalPool = AnimalPool( )
-            animalPool.loadAnimals( connection )
-            
-            '''
-            currentMinT = 335794-30
-            currentMaxT = 335794+30
-            '''
-            
-            
-            currentMinT = 0
-            #currentMaxT = 60*oneMinute
-            
-            #currentMaxT = 6*oneHour #3*oneDay
-            currentMaxT = 3*oneDay
-            
-            animalPool.loadDetection( start = currentMinT, end = currentMaxT )
-            reBuildEvent( connection, file, tmin=currentMinT, tmax=currentMaxT, pool = animalPool )
-            
-            
-            
-    chronoFullBatch.printTimeInS()
-    print( "*** ALL JOBS DONE ***")
 
-        
-        
-        
-        
-        
-    
+# Do not modify
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)

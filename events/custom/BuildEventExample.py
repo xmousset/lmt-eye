@@ -13,29 +13,24 @@ from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-# EVENT INFO
+# Event info
 # ----------------
 
 EVENTS_NAME: list[str] = ["Example event"]
 # MUST be a list of event names (even if there is only one event in the file)
-# it allows the use of multiple events in the same file if needed
+# to allow the possibility of creating multiple events in one rebuild function
 
 EVENTS_DESCRIPTION: str = """
     This is an example of a custom event. It is not an official event, but it can be built and analysed like any other event.
     You can use this file as a template to create your own custom events.
     To do so, copy and paste this file, rename it (e.g. BuildEventMyEvent.py), and modify the code in the reBuildEvent function.
     Make sure to change the EVENTS_NAME variable and the docstring of the reBuildEvent function to describe your event and its parameters.
+    If multiple events are created in one rebuild function, all will have this description.
 """
 
 
-# Must be kept
+# Rebuild function
 # ----------------
-def flush(connection) -> None:
-    """Flush event in database"""
-    for event_name in EVENTS_NAME:
-        deleteEventTimeLineInBase(connection, event_name)
-
-
 def reBuildEvent(
     connection: sqlite3.Connection,
     file: Any | None = None,
@@ -78,8 +73,6 @@ def reBuildEvent(
     # ----------------
     cm_over_px = get_scale_cm_over_px(animalType)  # px <-> cm conversion
 
-    # Events creation
-    # ----------------
     if pool is None:
         pool = AnimalPool()
         pool.loadAnimals(connection)
@@ -89,6 +82,8 @@ def reBuildEvent(
     # massZ, frontX, frontY, frontZ, backX, backY, backZ
     # or rearing, lookUp, lookDown variables
 
+    # Events creation for each animal
+    # ----------------
     for animal in pool.animalDictionary.values():
 
         # prepare a dictionary to store the result of your event detection
@@ -104,7 +99,7 @@ def reBuildEvent(
         # create a new event timeline for each animal
         # it will be filled with the result of your event detection
         # then saved in database at the end of the process
-        your_event_TimeLine = EventTimeLine(
+        example_TL = EventTimeLine(
             conn=None,
             eventName=EVENTS_NAME[0],
             idA=animal.baseId,
@@ -154,19 +149,25 @@ def reBuildEvent(
 
         # ================ END OF EXAMPLES ================
 
-        # Must be kept
-        # ----------------
         # store your result in the event timeline and save it in database
-        your_event_TimeLine.reBuildWithDictionary(result)
-        your_event_TimeLine.endRebuildEventTimeLine(connection)
+        example_TL.reBuildWithDictionary(result)
+        example_TL.endRebuildEventTimeLine(connection)
 
-    # Must be kept
+    # Do not modify
     # ----------------
     # log process for debugging and record keeping
     t = TaskLogger(connection)
     for event_name in EVENTS_NAME:
         if tmin is None or tmax is None:
-            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
+            t.addLog(f"Build Event '{event_name}' (tmin or tmax is None)")
         else:
-            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
-    print(f"Event rebuilding finished: {EVENTS_NAME}")
+            t.addLog(f"Build Event '{event_name}'", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: '{"', '".join(EVENTS_NAME)}'")
+
+
+# Do not modify
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)
