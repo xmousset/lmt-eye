@@ -30,7 +30,8 @@ EVENTS_NAME: list[str] = [
 EVENTS_DESCRIPTION: str = """
     Detects when the animal is in one of the arena corners (NW, NE, SW, SE).
     Each corner is a 5 cm radius circle.
-    Events require minimum 6-frame duration (0.2s), with gaps ≤3 frames merged.
+    Events require minimum 2 seconds duration, with gaps ≤3 frames merged.
+    Corner coordinates (cm): NW(20,15), NE(70,15), SW(20,60), SE(70,60).
 """
 
 
@@ -52,11 +53,11 @@ def reBuildEvent(
     CORNERS_COORD = {
         "NW": (20, 15),
         "NE": (70, 15),
-        "SE": (20, 60),
-        "SW": (70, 60),
+        "SW": (20, 60),
+        "SE": (70, 60),
     }  # in cm
 
-    RADIUS = 10  # cm radius around the corner
+    RADIUS = 5  # cm radius around the corner
     MIN_DURATION = 2 * oneSecond  # minimum duration for valid event
     MERGING_GAP = 3  # merge events that are separated by 3 frames or less
 
