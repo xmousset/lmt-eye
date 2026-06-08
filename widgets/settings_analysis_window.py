@@ -59,6 +59,7 @@ class AnalysisSettingsWindow(QDialog):
         self.setWindowTitle("LMT-EYE - Analysis Settings")
 
         self.settings = self.load_default_settings()
+        self.rebuild_only = False
         self._init_ui()
 
     def _init_ui(self):
@@ -116,6 +117,13 @@ class AnalysisSettingsWindow(QDialog):
 
         # ================ REPORTS OPTIONS ================
 
+        # display_activity
+        self.activity_cb = QCheckBox()
+        self.activity_cb.setToolTip(
+            "Whether to display the activity reports in the results."
+        )
+        self.activity_cb.setChecked(self.settings.display_activity)
+
         # display_trajectory
         self.trajectory_cb = QCheckBox()
         self.trajectory_cb.setToolTip(
@@ -127,13 +135,15 @@ class AnalysisSettingsWindow(QDialog):
         # display_sensors
         self.sensors_cb = QCheckBox()
         self.sensors_cb.setToolTip(
-            "Whether to display the sensors reports in the results.\n"
-            "Could drastically increase memory usage and processing time."
+            "Whether to display the sensors reports in the results."
         )
         self.sensors_cb.setChecked(self.settings.display_sensors)
 
         # row layout
         reports_options_row = QHBoxLayout()
+        reports_options_row.addWidget(QLabel("Activity:"))
+        reports_options_row.addWidget(self.activity_cb)
+        reports_options_row.addStretch(1)
         reports_options_row.addWidget(QLabel("Trajectory:"))
         reports_options_row.addWidget(self.trajectory_cb)
         reports_options_row.addStretch(1)
@@ -145,6 +155,11 @@ class AnalysisSettingsWindow(QDialog):
         form.addRow(self.Qhline())
 
         # ================ EVENTS ================
+        official, custom, _ = self.get_events_from_settings()
+        self.selected_events: dict[str, set[str]] = {
+            "official": official,
+            "custom": custom,
+        }
 
         # events (official)
         btn_style = get_btn_style(txt_color="white", bg_color="blue")
@@ -636,12 +651,24 @@ class AnalysisSettingsWindow(QDialog):
         cancel_btn.setStyleSheet(btn_style)
         cancel_btn.clicked.connect(self.on_reject)
 
+        # rebuild only
+        btn_style = get_btn_style(size=13, bold=False)
+        rebuild_btn = QPushButton("Rebuild only")
+        rebuild_btn.setToolTip(
+            "Force the rebuild of all events without launching the analysis.\n"
+            "Always consider the 'Rebuild' tick box as ticked."
+        )
+        rebuild_btn.setFixedWidth(100)
+        rebuild_btn.setStyleSheet(btn_style)
+        rebuild_btn.clicked.connect(self.on_rebuild_only)
+
         # row layout
         validation_row = QHBoxLayout()
-        validation_row.addStretch(1)
+        validation_row.addStretch(2)
         validation_row.addWidget(ok_btn)
         validation_row.addWidget(cancel_btn)
         validation_row.addStretch(1)
+        validation_row.addWidget(rebuild_btn)
 
         form.addRow(validation_row)
 
@@ -659,11 +686,15 @@ class AnalysisSettingsWindow(QDialog):
         self.end_edit.setText(settings["processing_limits"][1])
         self.output_folder_edit.setText(settings["output_folder"])
 
-        _, _, written = self.get_selected_events_from_settings()
+        official, custom, written = self.get_events_from_settings()
+        self.selected_events["official"] = official
+        self.selected_events["custom"] = custom
+        self.selected_events["written"] = written
         self.written_event_edit.setText(", ".join(written))
 
         self.animal_type_box.setCurrentText(self.settings.animal_type.name)
         self.sensors_cb.setChecked(self.settings.display_sensors)
+        self.activity_cb.setChecked(self.settings.display_activity)
         self.trajectory_cb.setChecked(self.settings.display_trajectory)
         self.flickering_cb.setChecked(self.settings.filter_flickering)
         self.stop_cb.setChecked(self.settings.filter_stop)
@@ -690,10 +721,18 @@ class AnalysisSettingsWindow(QDialog):
             if self.output_folder_edit.text()
             else None
         )
+
+        official, custom, written = self.get_events_from_ui()
+        official = self.selected_events["official"]
+        custom = self.selected_events["custom"]
+        written = self.get_written_events_from_ui()
+        self.settings.events = official | custom | written
+
         self.settings.animal_type = AnimalType[
             self.animal_type_box.currentText()
         ]
         self.settings.display_sensors = self.sensors_cb.isChecked()
+        self.settings.display_activity = self.activity_cb.isChecked()
         self.settings.display_trajectory = self.trajectory_cb.isChecked()
         self.settings.filter_flickering = self.flickering_cb.isChecked()
         self.settings.filter_stop = self.stop_cb.isChecked()
@@ -711,7 +750,6 @@ class AnalysisSettingsWindow(QDialog):
         self.settings.rebuild_events = self.rebuild_box.isChecked()
         self.settings.bin_rounding = self.bin_rounding_cb.isChecked()
         self.settings.utc_offset = self.utc_offset_spin.value()
-        self._update_events()
 
         start_limit = self.start_edit.text().strip()
         if not start_limit:
@@ -955,13 +993,44 @@ class AnalysisSettingsWindow(QDialog):
         )
         self.night_duration_edit.blockSignals(False)
 
-    def _update_events(self):
-        """Update settings.events from the UI by keeping only known events
-        (official and custom) and current written events."""
-        official, custom, written = self.get_selected_events_from_settings()
-        self.settings.events = official | custom | written
-
     # ================ UTILS FUNCTIONS ================
+
+    def get_events_from_ui(self):
+        """Get the selected events from UI as a set by combining official,
+        custom and written events."""
+        official = self.selected_events["official"]
+        custom = self.selected_events["custom"]
+        written = self.get_written_events_from_ui()
+        return official, custom, written
+
+    def get_events_from_settings(self):
+        """Get all events present in both settings.events and ALL_EVENTS.
+        It corresponds to the events that are selected in the UI (through
+        EventSelectionWindow) and are known by the app (i.e. for which the
+        app has a specific analysis implemented).
+        """
+        official = self.settings.events & set(OFFICIAL_EVENTS.keys())
+        custom = self.settings.events & set(CUSTOM_EVENTS.keys())
+        written = self.settings.events - official - custom
+        return official, custom, written
+
+    def on_select_official_events(self):
+        dlg = EventSelectionWindow(
+            self,
+            "official",
+            self.selected_events["official"],
+        )
+        if dlg.exec():
+            self.selected_events["official"] = dlg.selected_events
+
+    def on_select_custom_events(self):
+        dlg = EventSelectionWindow(
+            self,
+            "custom",
+            self.selected_events["custom"],
+        )
+        if dlg.exec():
+            self.selected_events["custom"] = dlg.selected_events
 
     def get_written_events_from_ui(self):
         """Get the written events from UI as a set."""
@@ -969,38 +1038,13 @@ class AnalysisSettingsWindow(QDialog):
         w_e_set = {event.strip() for event in w_e_list if event.strip()}
         return w_e_set
 
-    def get_selected_events_from_settings(self):
-        """Get all events present in both settings.events and ALL_EVENTS.
-        It corresponds to the events that are selected in the UI (through
-        EventSelectionWindow) and are known by the app (i.e. for which the
-        app has a specific analysis implemented).
-        """
-        official_events = set(OFFICIAL_EVENTS.keys())
-        official_selection = self.settings.events & official_events
-
-        custom_events = set(CUSTOM_EVENTS.keys())
-        custom_selection = self.settings.events & custom_events
-
-        written_selection = (
-            self.settings.events - official_selection - custom_selection
-        )
-
-        return official_selection, custom_selection, written_selection
-
-    def on_select_official_events(self):
-        dlg = EventSelectionWindow(self, "official", self.settings.events)
-        if dlg.exec():
-            self.settings.events = dlg.selected_events
-            self._update_events()
-
-    def on_select_custom_events(self):
-        dlg = EventSelectionWindow(self, "custom", self.settings.events)
-        if dlg.exec():
-            self.settings.events = dlg.selected_events
-            self._update_events()
-
     def on_select_area(self):
-        dlg = AreaSelectionWindow(self, self.settings.analysis_area)
+        animal_type = AnimalType[self.animal_type_box.currentText()]
+        dlg = AreaSelectionWindow(
+            self,
+            self.settings.analysis_area,
+            animal_type,
+        )
         if dlg.exec():
             self.settings.analysis_area = dlg.selected_area
             self._update_area_label()
@@ -1078,6 +1122,18 @@ class AnalysisSettingsWindow(QDialog):
     def on_reject(self):
         """Reject dialog."""
         self.reject()
+
+    def on_rebuild_only(self):
+        """Update settings and accept dialog with a specific code for rebuild
+        only."""
+        self._update_settings_from_ui()
+        if not self._check_processing_limits_valid():
+            return
+        if not self._check_night_times_valid():
+            return
+        self.settings.rebuild_events = True
+        self.rebuild_only = True
+        self.accept()
 
     def Qhline(self):
         """Utility function to create a horizontal line separator."""

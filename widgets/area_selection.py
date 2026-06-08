@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from lmtanalysis.Parameters import AnimalType, get_arena_size_cm
 from widgets.pyqt6_tools import get_btn_style
 
 
@@ -77,36 +78,40 @@ class AreaSelectionGraphicsView(QGraphicsView):
         self.drag_offset = None
         super().mouseReleaseEvent(event)
 
-    def get_area(self):
-        """Return the selected area as (x_min, y_min, x_max, y_max) in *cm*."""
+    def get_area(self, arena_size: int = 50):
+        """Return the selected area as (x_min, y_min, x_max, y_max) in *cm*.
+        The area rectangle is defined in a 250x250 coordinate system, which is
+        then scaled to the actual arena size in *cm*.
+        (e.g. arena_size = 50 in *cm* for mouse)."""
 
+        scale = round(250 / arena_size)
         area = self.area.rect()
 
         if self.is_valid:
-            x_min = int(area.x() / 5)
-            y_min = int(area.y() / 5)
+            x_min = int(area.x() / scale)
+            y_min = int(area.y() / scale)
             coef = 1
         else:
-            x_min = int((area.x() + area.width()) / 5)
-            y_min = int((area.y() + area.height()) / 5)
+            x_min = int((area.x() + area.width()) / scale)
+            y_min = int((area.y() + area.height()) / scale)
             coef = -1
 
-        w = int(coef * area.width() / 5)
-        h = int(coef * area.height() / 5)
+        w = int(coef * area.width() / scale)
+        h = int(coef * area.height() / scale)
         x_max = x_min + w
         y_max = y_min + h
 
         return (x_min, y_min, x_max, y_max)
 
-    def set_area(self, area: tuple[int, int, int, int]):
+    def set_area(self, area: tuple[int, int, int, int], arena_size: int = 50):
         """Set the area rectangle based on (x_min, y_min, x_max, y_max) in
         *cm*."""
-
+        scale = round(250 / arena_size)
         x_min, y_min, x_max, y_max = area
-        x_min = x_min * 5
-        y_min = y_min * 5
-        x_max = x_max * 5
-        y_max = y_max * 5
+        x_min = x_min * scale
+        y_min = y_min * scale
+        x_max = x_max * scale
+        y_max = y_max * scale
         w = x_max - x_min
         h = y_max - y_min
 
@@ -128,12 +133,15 @@ class AreaSelectionWindow(QDialog):
         self,
         parent: QWidget | None,
         area: tuple[int, int, int, int] | None = None,
+        animal_type: AnimalType = AnimalType.MOUSE,
     ):
         super().__init__(parent)
         self.selected_area = area
         """(x_min, y_min, x_max, y_max) in *cm*. If None, analyze all data."""
+        self.animal_type = animal_type
         self.setWindowTitle("LMT-EYE - Analysis Settings - Area Selection")
         self.setFixedSize(500, 400)
+        self.arena_size = get_arena_size_cm(animal_type)
         self._init_ui()
 
     def _init_ui(self):
@@ -191,8 +199,8 @@ class AreaSelectionWindow(QDialog):
         x_min_row = QHBoxLayout()
         self.x_min_spin = QSpinBox()
         self.x_min_spin.setFixedWidth(80)
-        self.x_min_spin.setRange(0, 49)
-        self.x_min_spin.setValue(15)
+        self.x_min_spin.setRange(0, self.arena_size - 1)
+        self.x_min_spin.setValue(self.arena_size // 2 - self.arena_size // 4)
         self.x_min_spin.valueChanged.connect(self._on_x_min_changed)
         x_min_row.addStretch(1)
         x_min_row.addWidget(QLabel("X Min:"))
@@ -203,8 +211,8 @@ class AreaSelectionWindow(QDialog):
         x_max_row = QHBoxLayout()
         self.x_max_spin = QSpinBox()
         self.x_max_spin.setFixedWidth(80)
-        self.x_max_spin.setRange(1, 50)
-        self.x_max_spin.setValue(35)
+        self.x_max_spin.setRange(1, self.arena_size)
+        self.x_max_spin.setValue(self.arena_size // 2 + self.arena_size // 4)
         self.x_max_spin.valueChanged.connect(self._on_x_max_changed)
         x_max_row.addStretch(1)
         x_max_row.addWidget(QLabel("X Max:"))
@@ -216,8 +224,8 @@ class AreaSelectionWindow(QDialog):
         y_min_row = QHBoxLayout()
         self.y_min_spin = QSpinBox()
         self.y_min_spin.setFixedWidth(80)
-        self.y_min_spin.setRange(0, 49)
-        self.y_min_spin.setValue(15)
+        self.y_min_spin.setRange(0, self.arena_size - 1)
+        self.y_min_spin.setValue(self.arena_size // 2 - self.arena_size // 4)
         self.y_min_spin.valueChanged.connect(self._on_y_min_changed)
         y_min_row.addStretch(1)
         y_min_row.addWidget(QLabel("Y Min:"))
@@ -228,8 +236,8 @@ class AreaSelectionWindow(QDialog):
         y_max_row = QHBoxLayout()
         self.y_max_spin = QSpinBox()
         self.y_max_spin.setFixedWidth(80)
-        self.y_max_spin.setRange(1, 50)
-        self.y_max_spin.setValue(35)
+        self.y_max_spin.setRange(1, self.arena_size)
+        self.y_max_spin.setValue(self.arena_size // 2 + self.arena_size // 4)
         self.y_max_spin.valueChanged.connect(self._on_y_max_changed)
         y_max_row.addStretch(1)
         y_max_row.addWidget(QLabel("Y Max:"))
@@ -241,8 +249,8 @@ class AreaSelectionWindow(QDialog):
         width_row = QHBoxLayout()
         self.width_spin = QSpinBox()
         self.width_spin.setFixedWidth(80)
-        self.width_spin.setRange(1, 50)
-        self.width_spin.setValue(20)
+        self.width_spin.setRange(1, self.arena_size)
+        self.width_spin.setValue(self.arena_size // 2)
         self.width_spin.valueChanged.connect(self._on_width_changed)
         width_row.addStretch(1)
         width_row.addWidget(QLabel("Width:"))
@@ -253,8 +261,8 @@ class AreaSelectionWindow(QDialog):
         height_row = QHBoxLayout()
         self.height_spin = QSpinBox()
         self.height_spin.setFixedWidth(80)
-        self.height_spin.setRange(1, 50)
-        self.height_spin.setValue(20)
+        self.height_spin.setRange(1, self.arena_size)
+        self.height_spin.setValue(self.arena_size // 2)
         self.height_spin.valueChanged.connect(self._on_height_changed)
         height_row.addStretch(1)
         height_row.addWidget(QLabel("Height:"))
@@ -340,7 +348,7 @@ class AreaSelectionWindow(QDialog):
         # Apply preselected area
         if self.selected_area is not None:
             self.graphics_view.set_area_visibility(True)
-            self.graphics_view.set_area(self.selected_area)
+            self.graphics_view.set_area(self.selected_area, self.arena_size)
             self.update_spin_boxes()
         else:
             self.graphics_view.set_area_visibility(False)
@@ -358,7 +366,9 @@ class AreaSelectionWindow(QDialog):
 
     def update_spin_boxes(self):
         """Update all spinbox values from graphics view."""
-        x_min, y_min, x_max, y_max = self.graphics_view.get_area()
+        x_min, y_min, x_max, y_max = self.graphics_view.get_area(
+            self.arena_size
+        )
 
         w = x_max - x_min
         h = y_max - y_min
@@ -377,7 +387,10 @@ class AreaSelectionWindow(QDialog):
         x_max = self.x_max_spin.value()
         y_max = self.y_max_spin.value()
 
-        self.graphics_view.set_area((x_min, y_min, x_max, y_max))
+        self.graphics_view.set_area(
+            (x_min, y_min, x_max, y_max),
+            self.arena_size,
+        )
 
     # ================ CALLBACKS ================
 
@@ -421,8 +434,8 @@ class AreaSelectionWindow(QDialog):
         """Update graphics view when Width changes."""
         x_min = self.x_min_spin.value()
         w = self.width_spin.value()
-        if x_min + w > 50:
-            w = 50 - x_min
+        if x_min + w > self.arena_size:
+            w = self.arena_size - x_min
             self.width_spin.setValue(w)
         self.x_max_spin.setValue(x_min + w)
 
@@ -432,8 +445,8 @@ class AreaSelectionWindow(QDialog):
         """Update graphics view when Height changes."""
         y_min = self.y_min_spin.value()
         h = self.height_spin.value()
-        if y_min + h > 50:
-            h = 50 - y_min
+        if y_min + h > self.arena_size:
+            h = self.arena_size - y_min
             self.height_spin.setValue(h)
         self.y_max_spin.setValue(y_min + h)
 
@@ -443,8 +456,8 @@ class AreaSelectionWindow(QDialog):
         """Decrease or increase width and height by a specified amount."""
         x_min = self.x_min_spin.value()
         w = self.width_spin.value()
-        if x_min + w + amount > 50:
-            w = 50 - x_min
+        if x_min + w + amount > self.arena_size:
+            w = self.arena_size - x_min
         elif w + amount <= 0:
             w = 1
         else:
@@ -454,8 +467,8 @@ class AreaSelectionWindow(QDialog):
 
         h = self.height_spin.value()
         y_min = self.y_min_spin.value()
-        if y_min + h + amount > 50:
-            h = 50 - y_min
+        if y_min + h + amount > self.arena_size:
+            h = self.arena_size - y_min
         elif h + amount <= 0:
             h = 1
         else:
@@ -494,17 +507,21 @@ class AreaSelectionWindow(QDialog):
     def on_accept(self):
         """Store selected area and close dialog."""
         if self.graphics_view.is_area_visible():
-            self.selected_area = self.graphics_view.get_area()
+            self.selected_area = self.graphics_view.get_area(self.arena_size)
         else:
             self.selected_area = None
         self.accept()
 
 
-def test_area_selection_dialog():
+if __name__ == "__main__":
     import sys
     from PyQt6.QtWidgets import QApplication
 
     app = QApplication(sys.argv)
-    dialog = AreaSelectionWindow(None)
+    dialog = AreaSelectionWindow(
+        parent=None,
+        area=(1, 40, 30, 50),
+        animal_type=AnimalType.RAT,
+    )
     if dialog.exec() == QDialog.DialogCode.Accepted:
         print("Selected area:", dialog.selected_area)

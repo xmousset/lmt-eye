@@ -7,32 +7,29 @@ import numpy as np
 from typing import Any
 
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Parameters import get_scale_cm_over_px
 from lmtanalysis.Event import deleteEventTimeLineInBase
 from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-# EVENT INFO
+# Event info
 # ----------------
 
-EVENT_NAME = "Example event"
+EVENTS_NAME: list[str] = ["Example event"]
+# MUST be a list of event names (even if there is only one event in the file)
+# to allow the possibility of creating multiple events in one rebuild function
 
-EVENT_DESCRIPTION = """
+EVENTS_DESCRIPTION: str = """
     This is an example of a custom event. It is not an official event, but it can be built and analysed like any other event.
     You can use this file as a template to create your own custom events.
     To do so, copy and paste this file, rename it (e.g. BuildEventMyEvent.py), and modify the code in the reBuildEvent function.
-    Make sure to change the EVENT_NAME variable and the docstring of the reBuildEvent function to describe your event and its parameters.
+    Make sure to change the EVENTS_NAME variable and the docstring of the reBuildEvent function to describe your event and its parameters.
+    If multiple events are created in one rebuild function, all will have this description.
 """
 
 
-# DO NOT MODIFY
-# ----------------
-def flush(connection) -> None:
-    """Flush event in database"""
-    deleteEventTimeLineInBase(connection, EVENT_NAME)
-
-
-# YOUR EVENT
+# Rebuild function
 # ----------------
 def reBuildEvent(
     connection: sqlite3.Connection,
@@ -72,50 +69,58 @@ def reBuildEvent(
     None
     """
 
-    # DO NOT MODIFY
+    # Parameters
     # ----------------
-    # (unless you know what you are doing)
+    CM_OVER_PX = get_scale_cm_over_px(animalType)  # px <-> cm conversion
+
     if pool is None:
         pool = AnimalPool()
         pool.loadAnimals(connection)
-        pool.loadDetection(start=tmin, end=tmax)
+        pool.loadDetection(start=tmin, end=tmax, lightLoad=True)
+    # lightLoad=True allows to load only massX and massY of detections
+    # it is faster and uses less memory. Set it to False if you need any of:
+    # massZ, frontX, frontY, frontZ, backX, backY, backZ
+    # or rearing, lookUp, lookDown variables
 
+    # Events creation
+    # ----------------
     for animal in pool.animalDictionary.values():
-
-        # create a new event timeline for each animal
-        # it will be filled with the result of your event detection
-        # then saved in database at the end of the process
-        your_event_TimeLine = EventTimeLine(
-            conn=None,
-            eventName=EVENT_NAME,
-            idA=animal.baseId,
-            idB=None,
-            idC=None,
-            idD=None,
-            loadEvent=False,
-            minFrame=tmin,
-            maxFrame=tmax,
-        )
 
         # prepare a dictionary to store the result of your event detection
         # keys of this dictionary should be frame numbers
         # values should be True (do not add False values to the dictionary)
         result = {}
 
-        # example of use:
-        # result[f] = True
+        # USAGE EXAMPLE:
+        # > result[f] = True
         # this means your event occur at frame "f"
         # NEVER add a "False" value to the dictionary
 
+        # create a new event timeline for each animal
+        # it will be filled with the result of your event detection
+        # then saved in database at the end of the process
+        example_TL = EventTimeLine(
+            conn=None,
+            eventName=EVENTS_NAME[0],
+            idA=animal.baseId,
+            idB=None,
+            idC=None,
+            idD=None,
+            loadEvent=False,
+        )
+
+        # ================ EVENT DETECTION ================
+
+        # Useful examples
+        # ----------------
+        # example of how to get all frames and detections of the animal
         sorted_detections = sorted(animal.detectionDictionary.items())
 
-        # ================ YOUR CODE HERE ================
-
         # example of how to get all frames where the animal was detected
-        animal_frames = np.array([frame for frame, _ in sorted_detections])
+        animal_frames = [frame for frame, _ in sorted_detections]
 
         # examples of how to skip animals without detections
-        if animal_frames.size == 0:
+        if len(animal_frames) == 0:
             continue
 
         # example of how to get massX position of the animal detections
@@ -123,9 +128,11 @@ def reBuildEvent(
         massX = np.array(
             [detection.massX for _, detection in sorted_detections]
         )
+        # NOTE: if you want to access to head or tail points, you need to set
+        # lightLoad=False when loading detections in the pool (see above)
 
         # example of how to compute speed along X axis
-        frame_gaps = np.diff(animal_frames)
+        frame_gaps = np.diff(np.array(animal_frames))
         vx = np.zeros_like(massX)
         vx[1:] = np.diff(massX) / frame_gaps
 
@@ -140,20 +147,27 @@ def reBuildEvent(
 
         result[42] = True  # example of result dictionary
 
-        # ================ END OF YOUR CODE ================
+        # ================ END OF DETECTION ================
 
-        # DO NOT MODIFY
-        # ----------------
         # store your result in the event timeline and save it in database
-        your_event_TimeLine.reBuildWithDictionary(result)
-        your_event_TimeLine.endRebuildEventTimeLine(connection)
+        example_TL.reBuildWithDictionary(result)
+        example_TL.endRebuildEventTimeLine(connection)
 
-    # DO NOT MODIFY
+    # Do not modify
     # ----------------
     # log process for debugging and record keeping
     t = TaskLogger(connection)
-    if tmin is None or tmax is None:
-        t.addLog(f"Build Event {EVENT_NAME} (tmin or tmax is None)")
-    else:
-        t.addLog(f"Build Event {EVENT_NAME}", tmin=tmin, tmax=tmax)
-    print(f"Rebuild {EVENT_NAME} event finished.")
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
+        else:
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
+
+
+# Do not modify
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)

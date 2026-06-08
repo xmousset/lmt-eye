@@ -1022,20 +1022,14 @@ class Animal:
         if not (t in self.detectionDictionary):
             return None
 
-        if (
-            math.hypot(
-                self.detectionDictionary[t].massX - xPoint,
-                self.detectionDictionary[t].massY - yPoint,
-            )
-            > self.parameters.MAX_DISTANCE_THRESHOLD
-        ):  # if the distance calculated is too large, discard
+        distanceToPoint = math.hypot(
+            self.detectionDictionary[t].massX - xPoint,
+            self.detectionDictionary[t].massY - yPoint,
+        )
+        if distanceToPoint > self.parameters.MAX_DISTANCE_THRESHOLD:
+            # if the distance calculated is too large, discard
             return None
-
         else:
-            distanceToPoint = math.hypot(
-                self.detectionDictionary[t].massX - xPoint,
-                self.detectionDictionary[t].massY - yPoint,
-            )
             return distanceToPoint
 
     def getDistanceNoseToPoint(self, t, xPoint, yPoint):

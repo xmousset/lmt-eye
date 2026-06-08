@@ -11,31 +11,61 @@ class Detection():
 
     __slots__ = ('massX', 'massY','massZ','massPoint','frontX','frontY','frontZ','frontPoint','backX','backY','backZ','backPoint','rearing','lookUp','lookDown','mask','frame' )
 
-    def __init__(self, massX, massY, massZ=None, frontX=None, frontY=None, frontZ=None, backX=None, backY=None, backZ=None, rearing=None, lookUp=None, lookDown=None , lightLoad = False , frame = None ):
+    def __init__(
+        self,
+        massX: float,
+        massY: float,
+        massZ: float | None = None,
+        frontX: float | None = None,
+        frontY: float | None = None,
+        frontZ: float | None = None,
+        backX: float | None = None,
+        backY: float | None = None,
+        backZ: float | None = None,
+        rearing: bool | None = None,
+        lookUp: bool | None = None,
+        lookDown: bool | None = None,
+        lightLoad: bool | None = False,
+        frame: int | None = None
+    ):
         
-        self.massX = massX
-        self.massY = massY
-        self.frame = frame
+        self.massX: float = massX
+        self.massY: float = massY
+        if frame is not None:
+            self.frame: int = frame
         
         if lightLoad:
             return
         
-        self.massZ = massZ
-        self.massPoint = Point( massX , massY )
+        self.massPoint: Point = Point( massX , massY )
+        
+        if massZ is not None:
+            self.massZ: float = massZ
+        
+        if frontX is not None:
+            self.frontX: float = frontX
+        if frontY is not None:
+            self.frontY: float = frontY
+        if frontZ is not None:
+            self.frontZ: float = frontZ
+        
+        self.frontPoint: Point = Point( frontX , frontY )
+
+        if backX is not None:
+            self.backX: float = backX
+        if backY is not None:
+            self.backY: float = backY
+        if backZ is not None:
+            self.backZ: float = backZ
             
-        self.frontX = frontX
-        self.frontY = frontY
-        self.frontZ = frontZ
-        self.frontPoint = Point( frontX , frontY )
+        self.backPoint: Point = Point( backX , backY )
 
-        self.backX = backX
-        self.backY = backY
-        self.backZ = backZ
-        self.backPoint = Point( backX , backY )
-
-        self.rearing = rearing
-        self.lookUp = lookUp
-        self.lookDown = lookDown
+        if rearing is not None:
+            self.rearing: bool = rearing
+        if lookUp is not None:
+            self.lookUp: bool = lookUp
+        if lookDown is not None:
+            self.lookDown: bool = lookDown
         
     
     def setMask( self, mask ):

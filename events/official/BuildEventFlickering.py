@@ -3,33 +3,37 @@ Created on 25-11-2025
 @author: Xavier Mousset
 """
 
-from re import match
 import sqlite3
 import numpy as np
 from typing import Any
 
-from lmtanalysis.Animal import AnimalPool, AnimalType, EventTimeLine
-from lmtanalysis.Event import deleteEventTimeLineInBase
 from lmtanalysis.TaskLogger import TaskLogger
+from lmtanalysis.Parameters import get_scale_cm_over_px
+from lmtanalysis.Event import deleteEventTimeLineInBase
+from lmtanalysis.Animal import AnimalPool, AnimalType, EventTimeLine
+
+# Event info
+# ----------------
+
+EVENTS_NAME = ["Flickering"]
+
+EVENTS_DESCRIPTION = """
+    Detects when the animal is flickering, i.e., when it is moving very fast
+    but without much displacement (e.g., during a tremor or a seizure).
+    Flickering is calculated on 19 frames (centered window, equal to 0.6 second)
+    and with at least 7 frames (0.2 second).
+"""
 
 
-# name of the event to build (should correspond to the file name)
-EVENT_NAME = "Flickering"
-
-
-# DO NOT MODIFY THIS PART, UNLESS YOU KNOW WHAT YOU ARE DOING
-def flush(connection):
-    """Flush event in database"""
-    deleteEventTimeLineInBase(connection, EVENT_NAME)
-
-
+# Rebuild function
+# ----------------
 def reBuildEvent(
     connection: sqlite3.Connection,
     file: Any | None = None,
     tmin: int | None = None,
     tmax: int | None = None,
     pool: AnimalPool | None = None,
-    animalType: AnimalType | None = AnimalType.MOUSE,
+    animalType: AnimalType = AnimalType.MOUSE,
     window: int = 19,
     event_min_frames: int = 6,
     flick_when_few_frames: bool = False,
@@ -43,22 +47,6 @@ def reBuildEvent(
 
     Parameters
     ----------
-    connection : sqlite3.Connection
-        The SQLite database connection.
-    file : Any or None, optional
-        The file path or object. (not used here)
-        Can be used by EventTimeLineCached to cache event loading.
-        Default is None.
-    tmin : int or None, optional
-        The start time for loading detections in frame. If None, it will load
-        all detections from the start.
-    tmax : int or None, optional
-        The end time for loading detections in frame. If None, it will load
-        all detections until the end.
-    pool : AnimalPool or None, optional
-        Optional existing AnimalPool instance (create new one if None).
-    animalType : AnimalType or None, optional
-        The appropriate animal type. Default is MOUSE.
     window : int, optional
         The size of the rolling window (in frames) used to compute flickering
         events. Must be at least 7. Default is 19 (0.6 second).
@@ -70,10 +58,6 @@ def reBuildEvent(
         define if it must be considered as a flickering or not. Default is
         False (i.e., small numbers of frames are not considered a flickering
         event).
-
-    Returns
-    -------
-    None
     """
 
     # Inputs errors
@@ -81,32 +65,15 @@ def reBuildEvent(
     if window < 7:
         raise ValueError("Minimum window size for flickering is 7 frames.")
 
-    # DO NOT MODIFY
+    # Parameters
     # ----------------
-    if pool is None:
-        pool = AnimalPool()
-        pool.loadAnimals(connection)
-        pool.loadDetection(start=tmin, end=tmax)
+    CM_OVER_PX = get_scale_cm_over_px(animalType)
 
-    # Flickering Criteria
-    # ----------------
-    match animalType:
-        case AnimalType.MOUSE:
-            # 81 (px/frame)² = 9 px/frame ~ 1.6 cm/frame minimum max_speed
-            # 16 (px/frame)² = 4 px/frame ~ 0.70 cm/frame min speed difference
-            criteria = {
-                "min_speed": 81,
-                "speed_displacement_diff": 16,
-            }
-        case AnimalType.RAT:
-            # 81 (px/frame)² = 9 px/frame ~ 1.6 cm/frame minimum max_speed
-            # 16 (px/frame)² = 4 px/frame ~ 0.70 cm/frame min speed difference
-            criteria = {
-                "min_speed": 81,
-                "speed_displacement_diff": 16,
-            }
-        case _:
-            raise ValueError("Animal type not supported for flickering event.")
+    min_speed_2 = (1.6 / CM_OVER_PX) ** 2
+    # minimum value for the max_speed of the 'window' interval in cm/frame
+    speed_displacement_diff_2 = (0.7 / CM_OVER_PX) ** 2
+    # minimum value for the difference between mean_speed and displacement
+    # of the 'window' interval in cm/frame
 
     half_w = window // 2
     left_w = half_w
@@ -114,11 +81,18 @@ def reBuildEvent(
     if window % 2 == 0:
         right_w = right_w - 1
 
+    if pool is None:
+        pool = AnimalPool()
+        pool.loadAnimals(connection)
+        pool.loadDetection(start=tmin, end=tmax)
+
+    # Events creation for each animal
+    # ----------------
     for animal_key in pool.animalDictionary.keys():
 
         flickeringTimeLine = EventTimeLine(
             conn=connection,
-            eventName=EVENT_NAME,
+            eventName=EVENTS_NAME[0],
             idA=animal_key,
             idB=None,
             idC=None,
@@ -182,16 +156,15 @@ def reBuildEvent(
             local_vx = vx[start : end + 1]
             local_vy = vy[start : end + 1]
 
-            speed = local_vx**2 + local_vy**2
-            max_speed = np.max(speed)
-            mean_speed = np.mean(speed)
-            displacement = np.mean(local_vx) ** 2 + np.mean(local_vy) ** 2
+            speed_2 = local_vx**2 + local_vy**2
+            max_speed_2 = np.max(speed_2)
+            mean_speed_2 = np.mean(speed_2)
+            displacement_2 = np.mean(local_vx) ** 2 + np.mean(local_vy) ** 2
 
             # criteria for flickering
             if (
-                max_speed > criteria["min_speed"]
-                and mean_speed - displacement
-                > criteria["speed_displacement_diff"]
+                max_speed_2 > min_speed_2
+                and mean_speed_2 - displacement_2 > speed_displacement_diff_2
             ):
                 result[f_key] = True
 
@@ -202,12 +175,21 @@ def reBuildEvent(
         flickeringTimeLine.reBuildWithDictionary(result)
         flickeringTimeLine.endRebuildEventTimeLine(connection)
 
-    # DO NOT MODIFY
+    # Do not modify
     # ----------------
     # log process for debugging and record keeping
     t = TaskLogger(connection)
-    if tmin is None or tmax is None:
-        t.addLog("Build Event Flickering (tmin or tmax is None)")
-    else:
-        t.addLog("Build Event Flickering", tmin=tmin, tmax=tmax)
-    print("Rebuild event finished.")
+    for event_name in EVENTS_NAME:
+        if tmin is None or tmax is None:
+            t.addLog(f"Build Event {event_name} (tmin or tmax is None)")
+        else:
+            t.addLog(f"Build Event {event_name}", tmin=tmin, tmax=tmax)
+    print(f"Event rebuilding finished: {', '.join(EVENTS_NAME)}")
+
+
+# Do not modify
+# ----------------
+def flush(connection) -> None:
+    """Flush event in database"""
+    for event_name in EVENTS_NAME:
+        deleteEventTimeLineInBase(connection, event_name)

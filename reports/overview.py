@@ -24,7 +24,7 @@ def generic_reports(
     activity, analyzed events, and sensor readings."""
 
     report_manager.reports_creation_focus("main")
-    if df_animals is None or df_activity is None:
+    if df_animals is None:
         report_manager.add_title(
             name="Overview analysis",
             content="No data available.",
@@ -33,10 +33,14 @@ def generic_reports(
 
     # ================ PARAMETERS ================
     NB_ANIMALS = df_animals["RFID"].nunique()
-    EXP_DURATION = (
-        df_activity["END_TIME"].max() - df_activity["START_TIME"].min()
-    ).total_seconds()
-    NB_DAYS = EXP_DURATION / 3600 / 24
+    if df_activity is not None:
+        EXP_DURATION = (
+            df_activity["END_TIME"].max() - df_activity["START_TIME"].min()
+        ).total_seconds()
+        NB_DAYS = EXP_DURATION / 3600 / 24
+    else:
+        EXP_DURATION = 0
+        NB_DAYS = 0
 
     if isinstance(settings, AnalysisSettings):
         if settings.database_path is None:
@@ -89,31 +93,51 @@ def generic_reports(
     )
 
     # ================ CARD: EXPERIMENT ================
+    if df_activity is not None:
+        exp_duration_str = f"""
+            <p style="margin: 0.5em 0;">Run during 
+            <strong>{NB_DAYS:1.1f} days</strong> 
+            and 
+            <strong>{EXP_DURATION // 3600} hours</strong> 
+            and 
+            <strong>{(EXP_DURATION // 60) % 60} minutes</strong>
+            </p>
+        """
+    else:
+        exp_duration_str = """
+            <p style='margin: 0.5em 0;'>
+            Experiment duration not available (need activity analysis).
+            </p>
+        """
     card = f"""
         <div style="flex: 0 0 320px; min-width: 220px; max-width: 400px;">
             <div style="margin:0; padding:0;">
-                <p style="margin: 0.5em 0;">Include <strong>
-                {NB_ANIMALS} animals
-                </strong></p>
-                <p style="margin: 0.5em 0;">Run during <strong>
-                {NB_DAYS:1.1f} days
-                </strong> and <strong>
-                {EXP_DURATION // 3600} hours
-                </strong> and <strong>
-                {(EXP_DURATION // 60) % 60} minutes
-                </strong></p>
+                <p style="margin: 0.5em 0;">Include 
+                <strong>{NB_ANIMALS} animals</strong>
+                </p>
+                {exp_duration_str}
         """
     if isinstance(settings, AnalysisSettings):
+        if df_activity is not None:
+            start_end_str = f"""
+                <p style="margin: 0.5em 0;">
+                {df_activity["START_TIME"].min().floor("s")} - start
+                </p>
+                <p style="margin: 0.5em 0;">
+                {df_activity["END_TIME"].max().floor("s")} - end
+                </p>
+            """
+        else:
+            start_end_str = """
+                <p style='margin: 0.5em 0;'>
+                Start and end times not available (need activity analysis).
+                </p>
+            """
         card += f"""
                 <p style="margin: 0.5em 0;">Binned every <strong>
                 {settings.time_window / settings.fps / 60} minutes
                 </strong></p>
-                <p style="margin: 0.5em 0;">
-                {df_activity["START_TIME"].min()} - start
-                </p>
-                <p style="margin: 0.5em 0;">
-                {df_activity["END_TIME"].max()} - end
-                </p>
+                {start_end_str}
             """
     card += """
             </div>
@@ -184,22 +208,33 @@ def generic_reports(
                 content="<p>No sensor data available.</p>",
             )
         else:
-            msg = """
-            Calculated time bin depends on the experiment analysis. As an 
-            information, we show here the analysis binning chose for each animal:
-            """
-            for rfid in sorted(df_activity["RFID"].unique()):
-                time_window = (
-                    df_activity[df_activity["RFID"] == rfid]["START_TIME"]
-                    .diff()
-                    .max()
+            if df_activity is not None:
+                msg = """
+                Calculated time bin depends on the experiment analysis. As an 
+                information, we show here the analysis binning chose for each 
+                animal:
+                """
+                for rfid in sorted(df_activity["RFID"].unique()):
+                    time_window = (
+                        df_activity[df_activity["RFID"] == rfid]["START_TIME"]
+                        .diff()
+                        .max()
+                    )
+                    time_window_min = round(time_window.total_seconds() / 60)
+                    msg += f"<br> - {rfid}: {time_window_min} min"
+                report_manager.add_card(
+                    name="Time interval (bin) for each animal",
+                    content=msg,
                 )
-                time_window_min = round(time_window.total_seconds() / 60)
-                msg += f"<br> - {rfid}: {time_window_min} min"
-            report_manager.add_card(
-                name="Time interval (bin) for each animal",
-                content=msg,
-            )
+            else:
+                msg = """
+                Time binning depends on the activity analysis, 
+                which is not included in this comparison.
+                """
+                report_manager.add_card(
+                    name="Time interval (bin) for each animal",
+                    content=msg,
+                )
 
     # ================ SETTINGS ================
     overview_type = (
@@ -288,10 +323,13 @@ def get_event_card(
 ):
     """Create an HTML card summarizing the average count and duration of each
     event per day, based on the provided DataFrame and list of events."""
+    if NB_DAYS == 0:
+        return "<p>Event card not available (need activity analysis).</p>"
     card = """<div style="flex: 0 0 320px; min-width: 220px;
     max-width: 400px;"> <div style="margin:0; padding:0;">
     """
     for event in event_list:
+        print(event)
         mean_count = round(
             df[df["EVENT"] == event]["EVENT_COUNT"].sum()
             / NB_ANIMALS

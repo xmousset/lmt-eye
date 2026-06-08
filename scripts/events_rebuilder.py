@@ -14,6 +14,7 @@ from typing import Callable, Literal
 import pandas as pd
 
 from scripts.binner import Binner
+from events.events_manager import sort_in_official_order
 
 from lmtanalysis.Animal import AnimalPool
 from lmtanalysis.AnimalType import AnimalType
@@ -65,8 +66,7 @@ class EventsRebuilder:
             last_timestamp,
             bin_size=processing_window,
             bin_rounding=False,
-            start=start,
-            end=end,
+            limits=(start, end),
             fps=fps,
             utc_offset=utc_offset,
         )
@@ -104,17 +104,17 @@ class EventsRebuilder:
         """Set the processing limits for data processing from frames or
         timestamps."""
 
-        self.binner.set_parameters(start=start, end=end)
+        self.binner.set_parameters(start_limit=start, end_limit=end)
 
     def get_processing_limits(
         self, unit: Literal["FRAME", "TIME"] = "FRAME"
     ) -> tuple[int | pd.Timestamp, int | pd.Timestamp]:
         """Get the processing frame limits."""
         if unit == "FRAME":
-            return (self.binner.start_frame, self.binner.end_frame)
+            return self.binner.limits
         elif unit == "TIME":
-            start_time = self.binner.frame_to_time(self.binner.start_frame)
-            end_time = self.binner.frame_to_time(self.binner.end_frame)
+            start_time = self.binner.frame_to_time(self.binner.limits[0])
+            end_time = self.binner.frame_to_time(self.binner.limits[1])
             return (start_time, end_time)
         else:
             raise ValueError("Invalid unit. Choose 'FRAME' or 'TIME'.")
@@ -167,7 +167,9 @@ class EventsRebuilder:
         ]
         self.update_progression(*progression)
 
-        for i, build_event_module in enumerate(modules):
+        for i, build_event_module in enumerate(
+            sort_in_official_order(modules)
+        ):
 
             event_chrono = Chronometer(str(build_event_module))
             print(f"Processing module: {build_event_module.__name__}...")

@@ -5,70 +5,61 @@ Created on 6 sept. 2017
 '''
 import sqlite3
 import unittest
-from time import *
+from typing import Any
 from lmtanalysis.Chronometer import Chronometer
-
-import matplotlib
-#matplotlib fix for mac
-#matplotlib.use('TkAgg')
 
 import matplotlib.pyplot as plt
 import numpy as np
-from lmtanalysis.Measure import *
+from lmtanalysis.Measure import oneMinute, oneHour, oneDay, oneWeek
 import sys
 import json
 from numpy import nan
 
 class Event:
-    '''
-    an event represent the interval of frame where the event is
-    '''
-    def __init__(self , startFrame, endFrame, baseId = None, metadata=None, description=None ):
+    """Event representation: interval of frame where the event is
+    (between startFrame and endFrame included)"""
+    def __init__(
+        self,
+        startFrame: int,
+        endFrame: int,
+        baseId: int | None = None,
+        metadata: Any | None = None,
+        description: str | None = None
+    ):
 
-        self.startFrame = startFrame
-        self.endFrame = endFrame
-        self.description = description
+        self.startFrame: int = startFrame
+        self.endFrame: int = endFrame
+        self.description: str | None = description
 
-        if metadata==None:
-            self.metadata = {}
+        if metadata == None:
+            self.metadata: Any = {}
         else:
-            self.metadata = json.loads( metadata )
+            self.metadata: Any = json.loads( metadata )
 
-        if baseId!= None:
-            self.baseId = baseId
+        if baseId != None:
+            self.baseId: int = baseId
 
-    def updateMetaData(self, connection , commit= False ):
-        
-        #print("Update metadata")
-        toStore = json.dumps( self.metadata )
-        #print( toStore )
-        #print( self.baseId )
+    def updateMetaData(
+        self,
+        connection: sqlite3.Connection,
+        commit: bool = False
+    ):
+        toStore = json.dumps(self.metadata)
 
-        #query = "UPDATE EVENT SET METADATA=%s WHERE ID=%s".format( toStore, self.baseId )
         query = "UPDATE EVENT SET METADATA=? WHERE ID=?"
-        #print ( query )
         c = connection.cursor()
-        c.execute( query , (toStore , self.baseId ) )
+        c.execute(query, (toStore, self.baseId))
         if commit:
             connection.commit()
-
-
 
     def duration(self):
         return self.endFrame-self.startFrame+1
 
-    def contain(self , frameNumber ):
-        return ( frameNumber >= self.startFrame and frameNumber <= self.endFrame )
+    def contain(self, frameNumber: int):
+        return frameNumber >= self.startFrame and frameNumber <= self.endFrame
 
-    def overlapInT(self , start , end ):
-        '''
-        XXXX
-          XXXX
-
-         YYYY
-        YYYYYY
-        '''
-        if ( start <= self.endFrame and end >= self.startFrame ):
+    def overlapInT(self, start: int, end: int):
+        if start <= self.endFrame and end >= self.startFrame:
             return True
         #if ( end <= self.endFrame and end >= self.startFrame ):
         #    return True
@@ -79,30 +70,36 @@ class Event:
         #    return True
         #return False
 
-    def overlapEvent(self , eventCandidate ):
-        result = self.overlapInT( eventCandidate.startFrame , eventCandidate.endFrame )
-        #print ( "Overlap debug: ( {} , {} ) - ( {} , {} ) : {}".format( self.startFrame, self.endFrame , eventCandidate.startFrame, eventCandidate.endFrame, result )  );
+    def overlapEvent(self, eventCandidate: Event):
+        result = self.overlapInT(
+            eventCandidate.startFrame,
+            eventCandidate.endFrame,
+        )
+        #print ( "Overlap debug: ( {} , {} ) - ( {} , {} ) : {}".format( self.startFrame, self.endFrame , eventCandidate.startFrame, eventCandidate.endFrame, result )  )
         return result
 
-    def shift(self, nbFrame):
+    def shift(self, nbFrame: int):
         '''
         Shifts event of nbFrame
         '''
         self.startFrame += nbFrame
         self.endFrame += nbFrame
 
-    def numberOfFrameToEvent(self , eventCandidate ):
+    def numberOfFrameToEvent(self, eventCandidate: Event):
         '''
         provides the distance (in frame) to another event
         if the events do overlap, return 0
         '''
 
-        if ( self.overlapEvent( eventCandidate ) ):
-            return 0;
+        if self.overlapEvent(eventCandidate):
+            return 0
 
-        return min( abs( self.startFrame - eventCandidate.endFrame ), abs( self.endFrame - eventCandidate.startFrame ) )
+        distance1 = abs(self.startFrame - eventCandidate.endFrame)
+        distance2 = abs(self.endFrame - eventCandidate.startFrame)
+
+        return min(distance1, distance2)
     
-    def getIntervalWithNextEvent(self, nextEvent):
+    def getIntervalWithNextEvent(self, nextEvent: Event):
         '''
         provides the time interval (in frames) between the end of the current event and another one
         '''
@@ -112,7 +109,7 @@ class Event:
         
         return interval
         
-    def checkOverlapOfEventWithDic(self, dicToTest):
+    def checkOverlapOfEventWithDic(self, dicToTest: dict[int, bool]):
         result = False
         for t in range(self.startFrame, self.endFrame+1):
             if t in dicToTest.keys():
@@ -127,7 +124,20 @@ class EventTimeLine:
     '''
     classdocs
     '''
-    def __init__(self, conn, eventName, idA=None , idB=None ,idC=None , idD=None , loadEvent=True, minFrame = None, maxFrame=None, inverseEvent = False , loadEventIndependently = False ):
+    def __init__(
+        self,
+        conn: sqlite3.Connection | None,
+        eventName: str,
+        idA: int | None = None,
+        idB: int | None = None,
+        idC: int | None = None,
+        idD: int | None = None,
+        loadEvent: bool = True,
+        minFrame: int | None = None,
+        maxFrame: int | None = None,
+        inverseEvent: bool = False,
+        loadEventIndependently: bool = False
+    ):
         '''
         load events
             where t>=minFrame and t<=maxFrame if applicable
@@ -146,23 +156,25 @@ class EventTimeLine:
             idD = None
 
         #store parameters
-        self.idA = idA
-        self.idB = idB
-        self.idC = idC
-        self.idD = idD
-        self.eventName = str( eventName )
-        self.eventNameWithId = "{} idA:{} idB:{} idC:{} idD:{}".format( eventName , idA , idB, idC, idD )
+        self.idA: int | None = idA
+        self.idB: int | None = idB
+        self.idC: int | None = idC
+        self.idD: int | None = idD
+        self.eventName: str = str(eventName)
+        self.eventNameWithId: str = "{} idA:{} idB:{} idC:{} idD:{}".format( eventName , idA , idB, idC, idD )
         # build events
-        self.eventList = []
+        self.eventList: list[Event] = []
 
         if ( loadEvent == False ):
             print( "Event " + str( eventName ) + " created. eventNameWithId = " +  str( self.eventNameWithId ) + " loadEvent: False" )
-            return;
+            return
+        elif ( conn == None ):
+            raise Exception("To load event, need a database connection.")
 
         chrono = Chronometer( "Load event " + str ( self.eventName ) )
         c = conn.cursor()
 
-        query = "SELECT * FROM EVENT WHERE NAME='{0}'".format( self.eventName );
+        query = "SELECT * FROM EVENT WHERE NAME='{0}'".format( self.eventName )
         if ( idA != None ):
             query += " AND IDANIMALA={0}".format( idA )
 
@@ -307,7 +319,7 @@ class EventTimeLine:
         '''
         #check if event exists
         if ( self.getEventAt( frameNumber ) != None ):
-            return;
+            return
 
         for event in self.eventList[:]:
             if ( event.endFrame == frameNumber-1 ):
@@ -525,7 +537,7 @@ class EventTimeLine:
         #if no event or only one event in the timeline:
         if len(eventList) <= 1:
             print('No or only one event in timeline')
-            meanIntervalLength = NaN
+            meanIntervalLength = nan
         #if there are events in the timeline
         else:
             endFrameEvent1 = eventList[0].endFrame 
@@ -553,7 +565,7 @@ class EventTimeLine:
         #if no event or only one event in the timeline:
         if len(eventList) <= 1:
             print('No or only one event in timeline')
-            stdIntervalLength = np.nan
+            stdIntervalLength = nan
         else:
             #if there are events in the timeline
             endFrameEvent1 = eventList[0].endFrame 
@@ -571,10 +583,10 @@ class EventTimeLine:
         return stdIntervalLength
         
     def getDictionary(self , minFrame=None, maxFrame=None ):
-        frameDico = {}
+        frameDico: dict[int, bool] = {}
         for event in self.eventList:
             for t in range( event.startFrame, event.endFrame +1):
-                frameDico[t] = True;
+                frameDico[t] = True
 
         if ( minFrame !=None ):
             for key in dict ( frameDico ).keys() :
