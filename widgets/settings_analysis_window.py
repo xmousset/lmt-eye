@@ -1129,10 +1129,9 @@ class AnalysisSettingsWindow(QDialog):
 
 
 if __name__ == "__main__":
-    import sys
     from PyQt6.QtWidgets import QApplication
 
-    app = QApplication(sys.argv)
+    app = QApplication([])
     dlg = AnalysisSettingsWindow(parent=None)
 
     if dlg.exec():
@@ -1142,4 +1141,3 @@ if __name__ == "__main__":
             print(f"  {key}: {value}")
     else:
         print("Dialog cancelled.")
-    sys.exit(0)

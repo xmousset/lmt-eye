@@ -357,9 +357,14 @@ class SQLTypeDialog(QDialog):
         return self.combo.currentText()
 
 
-def test_area_selection_dialog(db_path: Path):
-    import sys
+if __name__ == "__main__":
     from PyQt6.QtWidgets import QApplication
 
-    app = QApplication(sys.argv)
+    app = QApplication([])
+    db_path = Path.home() / "Desktop" / "APP_TEST" / "example_dataset.sqlite"
+
     dlg = UpdateDatabaseInfo(None, db_path)
+
+    if dlg.exec():
+        print("Database updated:")
+        print(dlg.df)

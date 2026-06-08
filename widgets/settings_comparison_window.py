@@ -282,3 +282,21 @@ class ComparisonSettingsWindow(QDialog):
         hline.setFrameShadow(QFrame.Shadow.Sunken)
         hline.setFixedHeight(1)
         return hline
+
+
+if __name__ == "__main__":
+    from PyQt6.QtWidgets import QApplication
+
+    app = QApplication([])
+    db_path = Path.home() / "Desktop" / "APP_TEST" / "example_dataset.sqlite"
+    if not db_path.is_file():
+        list_path = []
+    else:
+        list_path = [db_path.parent / (db_path.stem + " - analysis")]
+
+    dialog = ComparisonSettingsWindow(
+        None,
+        analyses_path=list_path,
+    )
+    if dialog.exec():
+        print("Selected events:", dialog.settings)
