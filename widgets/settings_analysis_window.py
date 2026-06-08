@@ -272,11 +272,7 @@ class AnalysisSettingsWindow(QDialog):
             "<i>Activity</i> reports are not affected.\nDefault value is 0, "
             "which means that no events will be filtered out."
         )
-        self.event_duration_filter_spin.setValue(
-            self.settings.event_min_duration - 1
-        )
         self.event_duration_filter_spin.setRange(0, 180)
-        self.event_duration_filter_spin.setValue(self.settings.fps)
         self.event_duration_filter_spin.setMinimumWidth(75)
 
         event_filters_row = QHBoxLayout()
@@ -326,7 +322,6 @@ class AnalysisSettingsWindow(QDialog):
             "but it is the frames value that will be used)."
         )
         self.time_window_frames.setRange(1, 100_000_000)
-        self.time_window_frames.setValue(self.settings.time_window)
 
         self.time_window_minutes = QDoubleSpinBox()
         self.time_window_minutes.setToolTip(
@@ -336,9 +331,6 @@ class AnalysisSettingsWindow(QDialog):
         )
         self.time_window_minutes.setDecimals(0)
         self.time_window_minutes.setRange(0, 100_000)
-        self.time_window_minutes.setValue(
-            int(self.settings.time_window / (self.settings.fps * 60))
-        )
 
         # processing_window (frames and minutes)
         self.process_window_frames = QSpinBox()
@@ -349,7 +341,6 @@ class AnalysisSettingsWindow(QDialog):
             "DO NOT IMPACT ANALYSIS RESULTS."
         )
         self.process_window_frames.setRange(1, 100_000_000)
-        self.process_window_frames.setValue(self.settings.processing_window)
         self.process_window_frames.setStyleSheet("color: grey;")
 
         self.process_window_hours = QDoubleSpinBox()
@@ -361,11 +352,6 @@ class AnalysisSettingsWindow(QDialog):
         )
         self.process_window_hours.setDecimals(0)
         self.process_window_hours.setRange(0, 10_000)
-        self.process_window_hours.setValue(
-            int(
-                self.settings.processing_window / (self.settings.fps * 60 * 60)
-            )
-        )
         self.process_window_hours.setStyleSheet("color: grey;")
 
         # bin_rounding
@@ -392,7 +378,6 @@ class AnalysisSettingsWindow(QDialog):
             "DO NOT MODIFY UNLESS YOU KNOW WHAT YOU ARE DOING."
         )
         self.fps_spin.setRange(1, 60)
-        self.fps_spin.setValue(self.settings.fps)
         self.fps_spin.setMinimumWidth(75)
         self.fps_spin.setStyleSheet("color: grey;")
 
@@ -518,7 +503,6 @@ class AnalysisSettingsWindow(QDialog):
             "For example, +1 for Paris, +9 for Tokyo or +5.75 for Kathmandu."
         )
         self.utc_offset_spin.setRange(-12.0, 14.0)
-        self.utc_offset_spin.setValue(self.settings.utc_offset)
         self.utc_offset_spin.setMinimumWidth(75)
 
         utc_row = QHBoxLayout()
@@ -1142,3 +1126,20 @@ class AnalysisSettingsWindow(QDialog):
         hline.setFrameShadow(QFrame.Shadow.Sunken)
         hline.setFixedHeight(1)
         return hline
+
+
+if __name__ == "__main__":
+    import sys
+    from PyQt6.QtWidgets import QApplication
+
+    app = QApplication(sys.argv)
+    dlg = AnalysisSettingsWindow(parent=None)
+
+    if dlg.exec():
+        settings = dlg.settings
+        print("=== Analysis Settings ===")
+        for key, value in settings.as_dict().items():
+            print(f"  {key}: {value}")
+    else:
+        print("Dialog cancelled.")
+    sys.exit(0)
