@@ -11,7 +11,7 @@ from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-# EVENT INFO
+# Event info
 # ----------------
 
 EVENTS_NAME: list[str] = ["onHouse"]
@@ -51,31 +51,30 @@ def reBuildEvent(
 
     for animal in pool.animalDictionary.values():
 
+        result = {}
+
         onHouse_TL = EventTimeLine(
             conn=None,
             eventName=EVENTS_NAME[0],
             idA=animal.baseId,
             loadEvent=False,
-            minFrame=tmin,
-            maxFrame=tmax,
         )
 
+        # ================ EVENT DETECTION ================
+
         # Get the Center Zone event dictionary to filter detections
-        center_zone_TL = EventTimeLineCached(
+        center_zone_dict = EventTimeLineCached(
             connection=connection,
             file=file,
             eventName="Center Zone",
             idA=animal.baseId,
-        )
-        center_zone_dictionary = center_zone_TL.getDictionary()
-
-        result = {}
+        ).getDictionary()
 
         sorted_detections = sorted(animal.detectionDictionary.items())
 
         for f, detect in sorted_detections:
             # Only consider frames in Center Zone
-            if f not in center_zone_dictionary:
+            if f not in center_zone_dict:
                 continue
 
             # Check height thresholds
@@ -85,6 +84,8 @@ def reBuildEvent(
             # Mark as onHouse if both conditions met
             if mass_ok and head_ok:
                 result[f] = True
+
+        # ================ END OF DETECTION ================
 
         onHouse_TL.reBuildWithDictionary(result)
         onHouse_TL.removeEventsBelowLength(MIN_EVENT_LENGTH)

@@ -15,7 +15,7 @@ from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-# EVENT INFO
+# Event info
 # ----------------
 
 EVENTS_NAME: list[str] = ["Water Zone", "Water Stop"]
@@ -58,6 +58,9 @@ def reBuildEvent(
 
     for animal in pool.animalDictionary.values():
 
+        result_wzone = {}
+        result_wstop = {}
+
         water_zone_TL = EventTimeLine(
             conn=None,
             eventName=EVENTS_NAME[0],
@@ -71,16 +74,13 @@ def reBuildEvent(
             loadEvent=False,
         )
 
-        stop_TL = EventTimeLineCached(
-            connection=connection,
-            file=file,
+        # ================ EVENT DETECTION ================
+
+        stop_dict = EventTimeLine(
+            conn=connection,
             eventName="Stop",
             idA=animal.baseId,
-        )
-        stopTimeLineDictionary = stop_TL.getDictionary()
-
-        resultWaterZone = {}
-        resultWaterStop = {}
+        ).getDictionary()
 
         sorted_detections = sorted(animal.detectionDictionary.items())
 
@@ -94,17 +94,19 @@ def reBuildEvent(
 
             # Check if the animal is entering the zone around the water point
             if dist <= WATER_ZONE_DISTANCE:
-                resultWaterZone[f] = True
+                result_wzone[f] = True
 
             # Check if the animal is drinking (in tight zone and stopped)
             if dist <= WATER_STOP_DISTANCE:
-                if f in stopTimeLineDictionary.keys():
-                    resultWaterStop[f] = True
+                if f in stop_dict:
+                    result_wstop[f] = True
 
-        water_zone_TL.reBuildWithDictionary(resultWaterZone)
+        # ================ END OF DETECTION ================
+
+        water_zone_TL.reBuildWithDictionary(result_wzone)
         water_zone_TL.endRebuildEventTimeLine(connection)
 
-        water_stop_TL.reBuildWithDictionary(resultWaterStop)
+        water_stop_TL.reBuildWithDictionary(result_wstop)
         water_stop_TL.removeEventsBelowLength(WATER_STOP_MIN_DURATION)
         water_stop_TL.endRebuildEventTimeLine(connection)
 

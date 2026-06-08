@@ -82,7 +82,7 @@ def reBuildEvent(
     # massZ, frontX, frontY, frontZ, backX, backY, backZ
     # or rearing, lookUp, lookDown variables
 
-    # Events creation for each animal
+    # Events creation
     # ----------------
     for animal in pool.animalDictionary.values():
 
@@ -107,12 +107,12 @@ def reBuildEvent(
             idC=None,
             idD=None,
             loadEvent=False,
-            minFrame=tmin,
-            maxFrame=tmax,
         )
 
-        # ================ EXAMPLES ================
+        # ================ EVENT DETECTION ================
 
+        # Useful examples
+        # ----------------
         # example of how to get all frames and detections of the animal
         sorted_detections = sorted(animal.detectionDictionary.items())
 
@@ -147,7 +147,7 @@ def reBuildEvent(
 
         result[42] = True  # example of result dictionary
 
-        # ================ END OF EXAMPLES ================
+        # ================ END OF DETECTION ================
 
         # store your result in the event timeline and save it in database
         example_TL.reBuildWithDictionary(result)

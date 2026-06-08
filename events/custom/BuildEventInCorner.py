@@ -16,7 +16,7 @@ from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-# EVENT INFO
+# Event info
 # ----------------
 
 EVENTS_NAME: list[str] = [
@@ -34,6 +34,8 @@ EVENTS_DESCRIPTION: str = """
 """
 
 
+# Rebuild function
+# ----------------
 def reBuildEvent(
     connection: sqlite3.Connection,
     file: Any | None = None,
@@ -76,13 +78,10 @@ def reBuildEvent(
                 conn=None,
                 eventName=f"{EVENTS_NAME[0]} {k}",
                 idA=animal.baseId,
-                idB=None,
-                idC=None,
-                idD=None,
                 loadEvent=False,
-                minFrame=tmin,
-                maxFrame=tmax,
             )
+
+        # ================ EVENT DETECTION ================
 
         for f in sorted(animal.detectionDictionary.keys()):
             for k in ["NW", "NE", "SW", "SE"]:
@@ -98,15 +97,15 @@ def reBuildEvent(
                     result_corner[k][f] = True
                     break
 
-        # Must be kept
-        # ----------------
+        # ================ END OF DETECTION ================
+
         for k in ["NW", "NE", "SW", "SE"]:
             cornerTimeLine[k].reBuildWithDictionary(result_corner[k])
             cornerTimeLine[k].removeEventsBelowLength(MIN_DURATION_IN_CORNER)
             cornerTimeLine[k].mergeCloseEvents(MERGING_GAP)
             cornerTimeLine[k].endRebuildEventTimeLine(connection)
 
-    # Must be kept
+    # Do not modify
     # ----------------
     # log process for debugging and record keeping
     f = TaskLogger(connection)
@@ -118,7 +117,7 @@ def reBuildEvent(
     print(f"Event rebuilding finished: '{', '.join(EVENTS_NAME)}'")
 
 
-# DO NOT MODIFY
+# Do not modify
 # ----------------
 def flush(connection) -> None:
     """Flush event in database"""

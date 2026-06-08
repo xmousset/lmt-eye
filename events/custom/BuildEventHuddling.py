@@ -51,7 +51,7 @@ def reBuildEvent(
     if tmax is None:
         tmax = pool.getMaxDetectionT()
 
-    # Events creation for each animal
+    # Events creation
     # ----------------
     for animal in pool.animalDictionary.values():
         result = {}
@@ -60,13 +60,12 @@ def reBuildEvent(
             eventName=EVENTS_NAME[0],
             idA=animal.baseId,
             loadEvent=False,
-            minFrame=tmin,
-            maxFrame=tmax,
         )
 
-        # ================ HUDDLING DETECTION ================
+        # ================ EVENT DETECTION ================
 
         n_hour = 0
+        # Exceptional print here, because Huddling can be very long to process
         print(f"Processing Huddling frames for animal {animal.baseId}...")
         for frame_num in range(tmin, tmax + 1):
             if frame_num % oneHour == 0:

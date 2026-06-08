@@ -16,7 +16,7 @@ from lmtanalysis.EventTimeLineCache import EventTimeLineCached
 from lmtanalysis.Animal import Animal, AnimalPool, AnimalType, EventTimeLine
 from lmtanalysis.Measure import oneSecond, oneMinute, oneHour, oneDay, oneWeek
 
-# EVENT INFO
+# Event info
 # ----------------
 
 EVENTS_NAME: list[str] = ["in house corner", "over house"]
@@ -59,6 +59,9 @@ def reBuildEvent(
 
     for animal in pool.animalDictionary.values():
 
+        result_in_house_corner = {}
+        result_over_house = {}
+
         houseCornerTimeLine = EventTimeLine(
             conn=None,
             eventName=EVENTS_NAME[0],
@@ -72,8 +75,7 @@ def reBuildEvent(
             loadEvent=False,
         )
 
-        result_in_house_corner = {}
-        result_over_house = {}
+        # ================ EVENT DETECTION ================
 
         sorted_detections = sorted(animal.detectionDictionary.items())
 
@@ -90,6 +92,8 @@ def reBuildEvent(
             if CORNER_DISTANCE_ON_MIN < dist < CORNER_DISTANCE_ON_MAX:
                 if detect.massZ > HEAD_HEIGHT_THRESHOLD:
                     result_over_house[f] = True
+
+        # ================ END OF DETECTION ================
 
         houseCornerTimeLine.reBuildWithDictionary(result_in_house_corner)
         houseCornerTimeLine.endRebuildEventTimeLine(connection)

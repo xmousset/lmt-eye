@@ -49,19 +49,16 @@ def reBuildEvent(
 
     for animal in pool.animalDictionary.values():
 
+        result = {}
+
         sniffFloorTimeLine = EventTimeLine(
             conn=None,
             eventName=EVENTS_NAME[0],
             idA=animal.baseId,
-            idB=None,
-            idC=None,
-            idD=None,
             loadEvent=False,
-            minFrame=tmin,
-            maxFrame=tmax,
         )
 
-        result = {}
+        # ================ EVENT DETECTION ================
 
         sorted_detections = sorted(animal.detectionDictionary.items())
 
@@ -79,6 +76,8 @@ def reBuildEvent(
 
         sniffFloorTimeLine.reBuildWithDictionary(result)
         sniffFloorTimeLine.endRebuildEventTimeLine(connection)
+
+        # ================ END OF DETECTION ================
 
     # Do not modify
     # ----------------
