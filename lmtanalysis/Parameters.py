@@ -32,3 +32,14 @@ def get_scale_cm_over_px(animal_type: AnimalType) -> float:
             return ParametersRat().scaleFactor
         case _:
             raise ValueError("Error: animal type does not exist.")
+
+
+def get_arena_size_cm(animal_type: AnimalType) -> int:
+    """Returns the arena size in cm for the given animal type."""
+    match animal_type:
+        case AnimalType.MOUSE:
+            return ParametersMouse().ARENA_SIZE
+        case AnimalType.RAT:
+            return ParametersRat().ARENA_SIZE
+        case _:
+            raise ValueError("Error: animal type does not exist.")
