@@ -50,15 +50,25 @@ def reBuildEvent(
     CM_OVER_PX = get_scale_cm_over_px(animalType)
 
     CORNERS_COORD = {
-        "NW": (114, 63),
-        "NE": (398, 63),
-        "SE": (398, 353),
-        "SW": (114, 353),
-    }  # in px
+        "NW": (20, 15),
+        "NE": (70, 15),
+        "SE": (20, 60),
+        "SW": (70, 60),
+    }  # in cm
 
-    RADIUS = 5 / CM_OVER_PX  # 5 cm radius around the corner
-    MIN_DURATION_IN_CORNER = 6 * oneSecond  # minimum duration for valid event
+    RADIUS = 10  # cm radius around the corner
+    MIN_DURATION = 2 * oneSecond  # minimum duration for valid event
     MERGING_GAP = 3  # merge events that are separated by 3 frames or less
+
+    radius_px_2 = (RADIUS / CM_OVER_PX) ** 2
+    corners_coord_px: dict[str, tuple[float, float]] = {}
+    for k, v in CORNERS_COORD.items():
+        coord_x = v[0] / CM_OVER_PX
+        if v[1] < 0:
+            coord_y = -v[1] / CM_OVER_PX
+        else:
+            coord_y = v[1] / CM_OVER_PX
+        corners_coord_px[k] = (coord_x, coord_y)
 
     # Events creation
     # ----------------
@@ -69,41 +79,40 @@ def reBuildEvent(
 
     for animal in pool.animalDictionary.values():
 
-        result_corner: dict[str, dict[int, bool]] = {}
-        cornerTimeLine: dict[str, EventTimeLine] = {}
+        results: dict[str, dict[int, bool]] = {}
+        corners_TL: dict[str, EventTimeLine] = {}
 
-        for k in ["NW", "NE", "SW", "SE"]:
-            result_corner[k] = {}
-            cornerTimeLine[k] = EventTimeLine(
+        for event_name in EVENTS_NAME:
+            results[event_name] = {}
+            corners_TL[event_name] = EventTimeLine(
                 conn=None,
-                eventName=f"{EVENTS_NAME[0]} {k}",
+                eventName=event_name,
                 idA=animal.baseId,
                 loadEvent=False,
             )
 
         # ================ EVENT DETECTION ================
 
-        for f in sorted(animal.detectionDictionary.keys()):
-            for k in ["NW", "NE", "SW", "SE"]:
-                distanceToEventLocation = animal.getDistanceToPoint(
-                    f,
-                    CORNERS_COORD[k][0],
-                    CORNERS_COORD[k][1],
-                )
-                if distanceToEventLocation == None:
-                    print("Distance cannot be computed.")
+        for f, detection in sorted(animal.detectionDictionary.items()):
+            for event_name in EVENTS_NAME[1:]:
+
+                if detection is None:
                     break
-                if distanceToEventLocation <= RADIUS:
-                    result_corner[k][f] = True
+                dir = event_name.split()[1]
+                dx_2 = (detection.massX - corners_coord_px[dir][0]) ** 2
+                dy_2 = (detection.massY - corners_coord_px[dir][1]) ** 2
+                if dx_2 + dy_2 <= radius_px_2:
+                    results[event_name][f] = True
+                    results["Corner"][f] = True
                     break
 
         # ================ END OF DETECTION ================
 
-        for k in ["NW", "NE", "SW", "SE"]:
-            cornerTimeLine[k].reBuildWithDictionary(result_corner[k])
-            cornerTimeLine[k].removeEventsBelowLength(MIN_DURATION_IN_CORNER)
-            cornerTimeLine[k].mergeCloseEvents(MERGING_GAP)
-            cornerTimeLine[k].endRebuildEventTimeLine(connection)
+        for event_name in EVENTS_NAME:
+            corners_TL[event_name].reBuildWithDictionary(results[event_name])
+            corners_TL[event_name].removeEventsBelowLength(MIN_DURATION)
+            corners_TL[event_name].mergeCloseEvents(MERGING_GAP)
+            corners_TL[event_name].endRebuildEventTimeLine(connection)
 
     # Do not modify
     # ----------------
