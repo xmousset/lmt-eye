@@ -228,6 +228,9 @@ class AnalysisSettings(GenericSettings):
     database_path : Path or None, optional
         Path to the database to analyze. If None, no analysis can be done.
         Defaults to None.
+    display_activity : bool, optional
+        Whether to display the activity reports in the results.
+        Defaults to True.
     display_sensors : bool, optional
         Whether to display the sensors reports in the results.
         Defaults to False.
@@ -302,6 +305,7 @@ class AnalysisSettings(GenericSettings):
             "animal_type": AnimalType.MOUSE,
             "bin_rounding": True,
             "database_path": None,
+            "display_activity": True,
             "display_sensors": False,
             "display_trajectory": False,
             "events": set(),
@@ -369,6 +373,7 @@ class AnalysisSettings(GenericSettings):
         self.animal_type: AnimalType = defaults["animal_type"]
         self.bin_rounding: bool = defaults["bin_rounding"]
         self.database_path: Path | None = defaults["database_path"]
+        self.display_activity: bool = defaults["display_activity"]
         self.display_sensors: bool = defaults["display_sensors"]
         self.display_trajectory: bool = defaults["display_trajectory"]
         self.events: set[str] = defaults["events"]
@@ -393,16 +398,18 @@ class AnalysisSettings(GenericSettings):
     def logic_update(self):
         """Update the settings values based on the current settings. Useful,
         for example, to add events if filters are activated."""
-        # need to filter flickering
-        if self.filter_flickering:
-            self.events.add("Flickering")
 
-        # always needed for activity analysis
-        self.events.add("Stop")
-        self.events.add("Stop in contact")
-        self.events.add("Stop isolated")
-        self.events.add("Move isolated")
-        self.events.add("Move in contact")
+        if self.display_activity:
+            # need to filter flickering
+            if self.filter_flickering:
+                self.events.add("Flickering")
+
+            # always needed for activity analysis
+            self.events.add("Stop")
+            self.events.add("Stop in contact")
+            self.events.add("Stop isolated")
+            self.events.add("Move isolated")
+            self.events.add("Move in contact")
 
     def convert_processing_limits(
         self,

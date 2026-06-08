@@ -194,7 +194,9 @@ class DatabaseAnalyzer:
             all_event_df = pd.DataFrame()
             sorted_events = sorted(self.settings.events)
 
-        total_steps = 2 + len(sorted_events)
+        total_steps = 1 + len(sorted_events)
+        if self.settings.display_activity:
+            total_steps += 1
         if self.settings.display_trajectory:
             total_steps += 1
         if self.settings.display_sensors:
@@ -204,17 +206,20 @@ class DatabaseAnalyzer:
 
         # ACTIVITY
         # ----------------
-        activity_df = df_constructor.get_df_activity(
-            self.settings.filter_flickering,
-            self.settings.filter_stop,
-        )
-        activity.generic_reports(
-            repo_manager,
-            activity_df,
-            self.settings,
-        )
-        progression[0] += 1
-        self.update_progression(*progression)
+        if self.settings.display_activity:
+            activity_df = df_constructor.get_df_activity(
+                self.settings.filter_flickering,
+                self.settings.filter_stop,
+            )
+            activity.generic_reports(
+                repo_manager,
+                activity_df,
+                self.settings,
+            )
+            progression[0] += 1
+            self.update_progression(*progression)
+        else:
+            activity_df = None
 
         # TRAJECTORY
         # ----------------
