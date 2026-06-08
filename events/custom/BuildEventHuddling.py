@@ -23,6 +23,7 @@ EVENTS_DESCRIPTION: str = """
     Detects huddling behavior in animals based on body shape roundness.
     An animal is considered huddling when its body roundness is below a certain threshold,
     indicating a curved or huddled posture rather than an extended position.
+    WARNING: This event is very long to process.
 """
 
 
