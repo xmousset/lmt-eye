@@ -116,6 +116,21 @@ class Animal:
             return self.detectionDictionary[t]
         return None
 
+    def getTimestampAt(self, t: int):
+        if self.conn == None:
+            return None
+
+        cursor = self.conn.cursor()
+        query = f"SELECT TIMESTAMP FROM FRAME WHERE FRAMENUMBER={t}"
+        cursor.execute(query)
+        row = cursor.fetchone()
+        cursor.close()
+
+        try:
+            return pd.Timestamp(row[0])
+        except Exception:
+            return None
+
     def loadDetection(self, start=None, end=None, lightLoad=False):
         """
         lightLoad only loads massX and massY to speed up the load. Then one can only compute basic features such as global speed of the animals
@@ -388,9 +403,9 @@ class Animal:
 
         keyList = sorted(self.detectionDictionary.keys())
 
-        xList = []
-        yList = []
-        fList = []
+        xList: list[list[float]] = []
+        yList: list[list[float]] = []
+        fList: list[int] = []
 
         previousKey = 0
 
@@ -1470,7 +1485,7 @@ class AnimalPool:
 
     def getAnimalList(self):
 
-        animalList = []
+        animalList: list[Animal] = []
 
         for k in self.animalDictionary:
             animal = self.animalDictionary[k]

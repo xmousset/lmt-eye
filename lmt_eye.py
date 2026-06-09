@@ -7,7 +7,7 @@ from pathlib import Path
 
 # ================ APP INFO ================
 # command for executable creation (run in terminal at project root):
-# pyinstaller -p LMT --onefile --icon=res/lmt_eye_icon.png --add-data "res/lmt_eye_icon.png;res" --add-data "res/template;res/template" --add-data "res/assets;res/assets" --add-data "res/mouse_run.gif;res" --add-data "events/custom;events/custom" lmt_eye.py
+# pyinstaller --onefile --icon=res/lmt_eye_icon.png --add-data "res/lmt_eye_icon.png;res" --add-data "res/template;res/template" --add-data "res/assets;res/assets" --add-data "res/mouse_run.gif;res" --add-data "events/custom;events/custom" lmt_eye.py
 
 APP_VERSION = "2.2"
 APP_RELEASE = "2026-mm-dd"
