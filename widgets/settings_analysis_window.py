@@ -319,7 +319,9 @@ class AnalysisSettingsWindow(QDialog):
             "Defines the binning of datas for the analysis (in frames).\n"
             "TIP: for a bin size smaller than 1 minute, change this value "
             "without modifying the minutes value (it will stay as 1 minute, "
-            "but it is the frames value that will be used)."
+            "but it is the frames value that will be used).\nWARNING: app may "
+            "crash if there is only 1 bin for the whole experiment, so choose "
+            "a bin size smaller than the experiment duration."
         )
         self.time_window_frames.setRange(1, 100_000_000)
 
@@ -327,7 +329,9 @@ class AnalysisSettingsWindow(QDialog):
         self.time_window_minutes.setToolTip(
             "Defines the binning of datas for the analysis (in minutes).\n"
             "TIP: for a bin size smaller than 1 minute, change the frames "
-            "value."
+            "value.\nWARNING: app may crash if there is only 1 bin for the "
+            "whole experiment, so choose a bin size smaller than the "
+            "experiment duration."
         )
         self.time_window_minutes.setDecimals(0)
         self.time_window_minutes.setRange(0, 100_000)
