@@ -519,10 +519,6 @@ class AnalysisSettingsWindow(QDialog):
         # processing_limits (start)
         if self.settings.processing_limits[0] is None:
             start = None
-        elif isinstance(self.settings.processing_limits[0], pd.Timestamp):
-            start = self.settings.processing_limits[0].isoformat(
-                sep=" ", timespec="seconds"
-            )
         else:
             start = str(self.settings.processing_limits[0])
         self.start_edit = QLineEdit(start)
@@ -536,10 +532,6 @@ class AnalysisSettingsWindow(QDialog):
         # processing_limits (end)
         if self.settings.processing_limits[1] is None:
             end = None
-        elif isinstance(self.settings.processing_limits[1], pd.Timestamp):
-            end = self.settings.processing_limits[1].isoformat(
-                sep=" ", timespec="seconds"
-            )
         else:
             end = str(self.settings.processing_limits[1])
         self.end_edit = QLineEdit(end)
@@ -668,6 +660,7 @@ class AnalysisSettingsWindow(QDialog):
 
         self.start_edit.setText(settings["processing_limits"][0])
         self.end_edit.setText(settings["processing_limits"][1])
+        self._on_processing_limits_changed()
         self.output_folder_edit.setText(settings["output_folder"])
 
         official, custom, written = self.get_events_from_settings()

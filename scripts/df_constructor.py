@@ -492,6 +492,11 @@ class DataframeConstructor:
                 )
 
                 xList, yList, fList = animal.get_trajectory()
+                if animal.parameters is None:
+                    print(f"Animal parameters => Unable to convert to cm")
+                    cm_over_px = 1.0
+                else:
+                    cm_over_px = animal.parameters.scaleFactor
 
                 for i in range(len(xList)):
                     if np.isnan(xList[i]).any() or np.isnan(yList[i]).any():
@@ -501,10 +506,8 @@ class DataframeConstructor:
                             "RFID": animal.RFID,
                             "ANIMALID": animal.baseId,
                             "FRAME": fList[i],
-                            "X": np.mean(xList[i])
-                            * animal.parameters.scaleFactor,
-                            "Y": np.mean(yList[i])
-                            * animal.parameters.scaleFactor,
+                            "X": np.mean(xList[i]) * cm_over_px,
+                            "Y": np.mean(yList[i]) * cm_over_px,
                             "TIME": self.binner.frame_to_time(fList[i]),
                         }
                     )
