@@ -514,14 +514,13 @@ class AreaSelectionWindow(QDialog):
 
 
 if __name__ == "__main__":
-    import sys
     from PyQt6.QtWidgets import QApplication
 
-    app = QApplication(sys.argv)
+    app = QApplication([])
     dialog = AreaSelectionWindow(
         parent=None,
         area=(1, 40, 30, 50),
         animal_type=AnimalType.RAT,
     )
-    if dialog.exec() == QDialog.DialogCode.Accepted:
+    if dialog.exec():
         print("Selected area:", dialog.selected_area)

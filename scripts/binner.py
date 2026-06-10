@@ -77,8 +77,8 @@ class Binner:
         self.set_parameters(
             bin_size,
             bin_rounding,
-            self.limits[0],
-            self.limits[1],
+            limits[0],
+            limits[1],
             utc_offset,
             fps,
         )

@@ -73,7 +73,7 @@ class EventSelectionWindow(QDialog):
             if col >= max_col:
                 col = 0
                 row += 1
-                
+
         grid_layout.setRowStretch(row + 1, 1)
         grid_widget = QWidget()
         grid_widget.setLayout(grid_layout)
@@ -105,3 +105,18 @@ class EventSelectionWindow(QDialog):
     def get_selected_events(self) -> set[str]:
         """Return a set of event names for checked checkboxes."""
         return {cb.text() for cb in self.analysis_options if cb.isChecked()}
+
+
+if __name__ == "__main__":
+    from PyQt6.QtWidgets import QApplication
+
+    app = QApplication([])
+    preselected = {"Flickering", "Stop", "Corner"}
+    dialog = EventSelectionWindow(
+        None,
+        events_package="official",
+        # events_package="custom",
+        preselected_events=preselected,
+    )
+    if dialog.exec():
+        print("Selected events:", dialog.selected_events)

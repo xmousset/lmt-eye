@@ -272,11 +272,7 @@ class AnalysisSettingsWindow(QDialog):
             "<i>Activity</i> reports are not affected.\nDefault value is 0, "
             "which means that no events will be filtered out."
         )
-        self.event_duration_filter_spin.setValue(
-            self.settings.event_min_duration - 1
-        )
         self.event_duration_filter_spin.setRange(0, 180)
-        self.event_duration_filter_spin.setValue(self.settings.fps)
         self.event_duration_filter_spin.setMinimumWidth(75)
 
         event_filters_row = QHBoxLayout()
@@ -323,22 +319,22 @@ class AnalysisSettingsWindow(QDialog):
             "Defines the binning of datas for the analysis (in frames).\n"
             "TIP: for a bin size smaller than 1 minute, change this value "
             "without modifying the minutes value (it will stay as 1 minute, "
-            "but it is the frames value that will be used)."
+            "but it is the frames value that will be used).\nWARNING: app may "
+            "crash if there is only 1 bin for the whole experiment, so choose "
+            "a bin size smaller than the experiment duration."
         )
         self.time_window_frames.setRange(1, 100_000_000)
-        self.time_window_frames.setValue(self.settings.time_window)
 
         self.time_window_minutes = QDoubleSpinBox()
         self.time_window_minutes.setToolTip(
             "Defines the binning of datas for the analysis (in minutes).\n"
             "TIP: for a bin size smaller than 1 minute, change the frames "
-            "value."
+            "value.\nWARNING: app may crash if there is only 1 bin for the "
+            "whole experiment, so choose a bin size smaller than the "
+            "experiment duration."
         )
         self.time_window_minutes.setDecimals(0)
         self.time_window_minutes.setRange(0, 100_000)
-        self.time_window_minutes.setValue(
-            int(self.settings.time_window / (self.settings.fps * 60))
-        )
 
         # processing_window (frames and minutes)
         self.process_window_frames = QSpinBox()
@@ -349,7 +345,6 @@ class AnalysisSettingsWindow(QDialog):
             "DO NOT IMPACT ANALYSIS RESULTS."
         )
         self.process_window_frames.setRange(1, 100_000_000)
-        self.process_window_frames.setValue(self.settings.processing_window)
         self.process_window_frames.setStyleSheet("color: grey;")
 
         self.process_window_hours = QDoubleSpinBox()
@@ -361,11 +356,6 @@ class AnalysisSettingsWindow(QDialog):
         )
         self.process_window_hours.setDecimals(0)
         self.process_window_hours.setRange(0, 10_000)
-        self.process_window_hours.setValue(
-            int(
-                self.settings.processing_window / (self.settings.fps * 60 * 60)
-            )
-        )
         self.process_window_hours.setStyleSheet("color: grey;")
 
         # bin_rounding
@@ -392,7 +382,6 @@ class AnalysisSettingsWindow(QDialog):
             "DO NOT MODIFY UNLESS YOU KNOW WHAT YOU ARE DOING."
         )
         self.fps_spin.setRange(1, 60)
-        self.fps_spin.setValue(self.settings.fps)
         self.fps_spin.setMinimumWidth(75)
         self.fps_spin.setStyleSheet("color: grey;")
 
@@ -518,7 +507,6 @@ class AnalysisSettingsWindow(QDialog):
             "For example, +1 for Paris, +9 for Tokyo or +5.75 for Kathmandu."
         )
         self.utc_offset_spin.setRange(-12.0, 14.0)
-        self.utc_offset_spin.setValue(self.settings.utc_offset)
         self.utc_offset_spin.setMinimumWidth(75)
 
         utc_row = QHBoxLayout()
@@ -535,10 +523,6 @@ class AnalysisSettingsWindow(QDialog):
         # processing_limits (start)
         if self.settings.processing_limits[0] is None:
             start = None
-        elif isinstance(self.settings.processing_limits[0], pd.Timestamp):
-            start = self.settings.processing_limits[0].isoformat(
-                sep=" ", timespec="seconds"
-            )
         else:
             start = str(self.settings.processing_limits[0])
         self.start_edit = QLineEdit(start)
@@ -552,10 +536,6 @@ class AnalysisSettingsWindow(QDialog):
         # processing_limits (end)
         if self.settings.processing_limits[1] is None:
             end = None
-        elif isinstance(self.settings.processing_limits[1], pd.Timestamp):
-            end = self.settings.processing_limits[1].isoformat(
-                sep=" ", timespec="seconds"
-            )
         else:
             end = str(self.settings.processing_limits[1])
         self.end_edit = QLineEdit(end)
@@ -684,6 +664,7 @@ class AnalysisSettingsWindow(QDialog):
 
         self.start_edit.setText(settings["processing_limits"][0])
         self.end_edit.setText(settings["processing_limits"][1])
+        self._on_processing_limits_changed()
         self.output_folder_edit.setText(settings["output_folder"])
 
         official, custom, written = self.get_events_from_settings()
@@ -1142,3 +1123,18 @@ class AnalysisSettingsWindow(QDialog):
         hline.setFrameShadow(QFrame.Shadow.Sunken)
         hline.setFixedHeight(1)
         return hline
+
+
+if __name__ == "__main__":
+    from PyQt6.QtWidgets import QApplication
+
+    app = QApplication([])
+    dlg = AnalysisSettingsWindow(parent=None)
+
+    if dlg.exec():
+        settings = dlg.settings
+        print("=== Analysis Settings ===")
+        for key, value in settings.as_dict().items():
+            print(f"  {key}: {value}")
+    else:
+        print("Dialog cancelled.")
